@@ -1,8 +1,8 @@
 name: canvas-migration
 project_files:
-  - .ddev/config.canvas-migration.yaml
-  - .ddev/commands/nodejs/clone
-  - .ddev/web-build/Dockerfile.canvas-migration
+  - config.canvas-migration.yaml
+  - commands/nodejs/clone
+  - web-build/Dockerfile.canvas-migration
   - website-to-components
   - .claude/skills/website-to-components
   - .claude/skills/website-to-components-multipage
@@ -16,6 +16,19 @@ project_files:
 global_files: []
 pre_install_actions: []
 post_install_actions:
+  - |
+    #ddev-description:Move website-to-components from .ddev to project root
+    if [ -d "${DDEV_APPROOT}/.ddev/website-to-components" ]; then
+      cp -r "${DDEV_APPROOT}/.ddev/website-to-components" "${DDEV_APPROOT}/"
+      rm -rf "${DDEV_APPROOT}/.ddev/website-to-components"
+    fi
+  - |
+    #ddev-description:Move Claude skills from .ddev to project root
+    if [ -d "${DDEV_APPROOT}/.ddev/.claude" ]; then
+      mkdir -p "${DDEV_APPROOT}/.claude/skills"
+      cp -r "${DDEV_APPROOT}/.ddev/.claude/skills/." "${DDEV_APPROOT}/.claude/skills/"
+      rm -rf "${DDEV_APPROOT}/.ddev/.claude"
+    fi
   - "echo ''"
   - "echo 'Canvas Migration addon installed.'"
   - "echo 'Run: ddev restart'"
