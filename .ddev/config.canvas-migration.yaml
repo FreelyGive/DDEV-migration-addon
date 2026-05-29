@@ -1,0 +1,15 @@
+#ddev-generated
+# Canvas Migration — installs website-to-components dependencies and fetches
+# the latest agent-browser skill on every container start.
+# Works standalone (brings its own agent-browser via Dockerfile.canvas-migration)
+# or alongside FreelyGive/DDEV-Canvas (agent-browser already present).
+
+hooks:
+  post-start:
+    # Fetch latest agent-browser skill definition
+    - exec: "mkdir -p /var/www/html/.claude/skills/agent-browser && agent-browser skills get core --full > /var/www/html/.claude/skills/agent-browser/SKILL.md 2>/dev/null || true"
+
+web_extra_daemons:
+  - name: npm-install-migration
+    command: "bash -c 'npm --prefix /var/www/html/website-to-components install --silent && sleep infinity'"
+    directory: /var/www/html

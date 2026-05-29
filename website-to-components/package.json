@@ -1,0 +1,26 @@
+{
+  "name": "website-to-components",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "screenshot": "node jobs/01-screenshot.js",
+    "screenshot:mobile": "node jobs/01b-screenshot-mobile.js",
+    "split": "node jobs/02-split-sections.js",
+    "mobile-check": "node jobs/06-mobile-check.js",
+    "detect": "node jobs/03-detect-components.js",
+    "report": "node jobs/04-report.js",
+    "pipeline": "npm run screenshot && npm run split && npm run detect && npm run report",
+    "run": "node scripts/run.js",
+    "finish": "node scripts/finish.js",
+    "sitemap": "node jobs/05-sitemap.js",
+    "run-all": "node scripts/run-all.js",
+    "finish-all": "node scripts/finish-all.js",
+    "audit": "node scripts/audit-content.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.33"
+  }
+}

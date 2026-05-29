@@ -1,0 +1,678 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/views/test</loc> 
+    <lastmod>2025-12-08T06:42:31.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.5</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/releases</loc> 
+    <lastmod>2025-12-08T08:13:42.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.5</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-07/86311-sites-dashboard-october-7-2025</loc> 
+    <lastmod>2025-10-22T09:27:34.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-09-16/86321-acquia-source-september-16-2025</loc> 
+    <lastmod>2025-10-22T09:28:40.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-09-30/86326-acquia-source-september-30-2025</loc> 
+    <lastmod>2025-10-22T09:27:52.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-06/86331-acquia-source-october-6-2025</loc> 
+    <lastmod>2025-10-22T09:27:45.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-22/92011-sites-dashboard-october-22-2025</loc> 
+    <lastmod>2025-12-03T11:00:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-21/92016-acquia-source-october-21-2025</loc> 
+    <lastmod>2025-10-22T09:26:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-28/94841-acquia-source-october-28-2025</loc> 
+    <lastmod>2026-01-09T08:40:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-10-30/94851-acquia-source-october-30-2025</loc> 
+    <lastmod>2025-11-05T07:33:21.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-11-13/95116-acquia-source-november-13-2025</loc> 
+    <lastmod>2026-01-09T08:40:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-11-20/95166-acquia-source-november-20-2025</loc> 
+    <lastmod>2026-01-12T12:40:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-02/95246-sites-dashboard-december-2-2025</loc> 
+    <lastmod>2026-01-12T12:40:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-02/95281-acquia-source-december-2-2025</loc> 
+    <lastmod>2025-12-04T06:41:05.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-04/95286-sites-dashboard-december-4-2025</loc> 
+    <lastmod>2025-12-04T11:46:36.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-12/95341-acquia-source-december-12-2025</loc> 
+    <lastmod>2025-12-17T07:49:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-11/95636-sites-dashboard-december-11-2025</loc> 
+    <lastmod>2025-12-11T13:51:57.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-17/95686-sites-dashboard-december-17-2025</loc> 
+    <lastmod>2025-12-17T09:38:16.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-18/95711-sites-dashboard-december-18-2025</loc> 
+    <lastmod>2025-12-19T11:20:10.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2025-12-17/95716-acquia-source-december-17-2025</loc> 
+    <lastmod>2025-12-19T11:20:10.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-01-07/95811-acquia-source-january-7-2026</loc> 
+    <lastmod>2026-01-12T06:45:52.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-01-13/95866-sites-dashboard-january-13-2026</loc> 
+    <lastmod>2026-01-13T13:00:05.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-01-12/95871-sites-dashboard-january-12-2026</loc> 
+    <lastmod>2026-01-13T12:59:39.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-01-14/95891-acquia-source-january-14-2026</loc> 
+    <lastmod>2026-01-19T07:04:57.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-02-11/96161-acquia-source-february-11-2026</loc> 
+    <lastmod>2026-02-12T11:25:15.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-02-23/96316-acquia-source-february-23-2026</loc> 
+    <lastmod>2026-02-24T14:27:46.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/release/2026-03-03/96436-acquia-source-march-3-2026</loc> 
+    <lastmod>2026-03-09T12:25:25.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.7</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/help/92056-updating-acquia-source-experience-builder-drupal-canvas</loc> 
+    <lastmod>2025-10-21T15:04:42.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.8</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/help/95151-how-do-i-reset-or-update-my-password-acquia-source</loc> 
+    <lastmod>2026-01-09T08:40:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.8</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/help/95156-why-cant-user-log-site-despite-getting-invitation</loc> 
+    <lastmod>2026-01-09T08:40:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.8</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/help/95311-what-happens-search-if-i-switch-language-my-site</loc> 
+    <lastmod>2025-12-03T11:00:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.8</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/overview</loc> 
+    <lastmod>2026-01-07T11:24:53.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/drupal-canvas</loc> 
+    <lastmod>2025-12-12T05:49:24.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/inviting-users</loc> 
+    <lastmod>2025-08-12T11:29:57.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/known-issues-and-limitations</loc> 
+    <lastmod>2026-02-10T11:50:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/welcome-acquia-source</loc> 
+    <lastmod>2025-08-07T12:57:45.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-new-site</loc> 
+    <lastmod>2025-12-19T06:35:13.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-and-publishing-your-first-page</loc> 
+    <lastmod>2026-03-07T16:30:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/sites-dashboard</loc> 
+    <lastmod>2026-03-07T16:47:38.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-domains-and-ssl-certificates</loc> 
+    <lastmod>2025-12-02T21:46:07.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-database-backups</loc> 
+    <lastmod>2025-10-27T12:09:40.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/deleting-site</loc> 
+    <lastmod>2025-10-27T11:49:57.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-teams-and-users</loc> 
+    <lastmod>2025-12-03T18:42:03.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/acquia-source-product-guide</loc> 
+    <lastmod>2026-02-25T06:51:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/site-templates</loc> 
+    <lastmod>2026-02-16T05:30:53.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/drupal-canvas-user-interface</loc> 
+    <lastmod>2026-03-09T09:43:16.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-drupal-canvas</loc> 
+    <lastmod>2025-09-11T15:46:42.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/components</loc> 
+    <lastmod>2025-12-12T05:52:46.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/patterns</loc> 
+    <lastmod>2025-09-09T19:46:28.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/adding-components-page</loc> 
+    <lastmod>2025-09-29T07:50:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/props</loc> 
+    <lastmod>2025-12-15T16:43:19.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/slots</loc> 
+    <lastmod>2025-08-07T14:52:03.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-custom-components</loc> 
+    <lastmod>2025-12-29T06:05:34.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/content-management</loc> 
+    <lastmod>2025-12-19T06:54:16.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/cms-content</loc> 
+    <lastmod>2025-08-07T14:59:19.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/content-workflows</loc> 
+    <lastmod>2025-09-09T20:02:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-workflows</loc> 
+    <lastmod>2025-08-07T15:04:24.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-permissions-transitions</loc> 
+    <lastmod>2025-07-31T10:01:24.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/enabling-content-scheduling</loc> 
+    <lastmod>2025-08-07T15:10:15.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/viewing-scheduled-content</loc> 
+    <lastmod>2025-07-31T10:08:14.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/data-structure</loc> 
+    <lastmod>2025-08-08T10:46:28.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/entity-types</loc> 
+    <lastmod>2025-12-15T16:42:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-new-content-type</loc> 
+    <lastmod>2025-10-21T11:40:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/fields</loc> 
+    <lastmod>2025-09-09T20:04:11.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-fields</loc> 
+    <lastmod>2025-08-08T10:58:35.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/field-types</loc> 
+    <lastmod>2025-08-08T11:01:46.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/compound-fields</loc> 
+    <lastmod>2025-08-08T11:03:58.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/form-display-settings</loc> 
+    <lastmod>2025-07-31T11:32:52.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/permissions</loc> 
+    <lastmod>2025-07-31T11:45:02.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/text-formats</loc> 
+    <lastmod>2025-09-09T20:05:37.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/widget-types</loc> 
+    <lastmod>2025-12-15T16:43:56.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-form-display-settings</loc> 
+    <lastmod>2025-08-08T11:16:27.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-permissions</loc> 
+    <lastmod>2025-07-31T11:46:21.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-text-formats</loc> 
+    <lastmod>2026-01-08T17:46:06.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/media</loc> 
+    <lastmod>2025-09-09T20:06:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/media-types</loc> 
+    <lastmod>2025-08-08T11:25:23.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-media-library</loc> 
+    <lastmod>2025-08-08T11:27:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/integration-acquia-dam</loc> 
+    <lastmod>2026-01-14T11:26:04.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/image-styles</loc> 
+    <lastmod>2025-08-08T11:30:45.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/setting-acquia-dam-integration</loc> 
+    <lastmod>2026-01-14T11:30:58.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/menus</loc> 
+    <lastmod>2025-12-15T16:41:50.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-menu</loc> 
+    <lastmod>2025-07-31T12:41:32.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/adding-links-menu</loc> 
+    <lastmod>2025-07-31T12:41:56.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/displaying-menus</loc> 
+    <lastmod>2025-09-09T20:08:45.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/enabling-content-be-added-menu</loc> 
+    <lastmod>2025-08-08T11:42:19.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-advanced-menu-features</loc> 
+    <lastmod>2025-07-31T12:43:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/taxonomy</loc> 
+    <lastmod>2025-08-08T11:44:31.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/adding-terms-vocabulary</loc> 
+    <lastmod>2025-07-31T15:10:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/applying-taxonomy-terms-content</loc> 
+    <lastmod>2025-07-31T15:11:14.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/text-formats-and-editors</loc> 
+    <lastmod>2025-08-04T12:09:27.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-text-formats-fields</loc> 
+    <lastmod>2025-07-31T16:35:52.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/user-management</loc> 
+    <lastmod>2025-08-12T11:33:38.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/roles-and-permissions</loc> 
+    <lastmod>2025-12-15T16:41:06.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-roles-and-permissions</loc> 
+    <lastmod>2025-08-08T11:48:42.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/managing-user-accounts</loc> 
+    <lastmod>2025-11-19T06:51:29.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-automatic-logout</loc> 
+    <lastmod>2025-07-31T14:09:02.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/site-settings</loc> 
+    <lastmod>2025-07-31T16:40:12.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-site-settings</loc> 
+    <lastmod>2025-09-09T18:29:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/languages</loc> 
+    <lastmod>2025-08-08T11:56:44.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-region-and-language-settings</loc> 
+    <lastmod>2025-07-31T16:50:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/translation</loc> 
+    <lastmod>2025-08-08T11:57:59.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/adding-or-deleting-language</loc> 
+    <lastmod>2025-12-01T07:00:07.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/enabling-translation-content-type</loc> 
+    <lastmod>2025-08-05T19:57:25.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/api-integration</loc> 
+    <lastmod>2025-08-08T12:00:35.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/enabling-api</loc> 
+    <lastmod>2025-08-08T12:01:41.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/integrations</loc> 
+    <lastmod>2026-02-27T06:55:59.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/acquia-source-integration-acquia-web-governance</loc> 
+    <lastmod>2025-10-06T08:16:55.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-quick-scan-acquia-source</loc> 
+    <lastmod>2025-09-09T20:14:46.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/connecting-acquia-web-governance-account-acquia-source</loc> 
+    <lastmod>2025-12-12T21:03:48.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/search</loc> 
+    <lastmod>2025-12-19T06:51:32.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/access-and-authentication</loc> 
+    <lastmod>2025-08-08T12:03:14.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-cors</loc> 
+    <lastmod>2025-08-05T19:04:31.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-api</loc> 
+    <lastmod>2025-08-19T07:06:02.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/open-api-documentation</loc> 
+    <lastmod>2025-08-08T12:04:24.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/integrating-nextjs-applications</loc> 
+    <lastmod>2025-08-08T12:05:18.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/webhooks</loc> 
+    <lastmod>2025-08-08T12:07:04.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/exporting-site</loc> 
+    <lastmod>2025-12-11T14:47:01.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-new-vocabulary</loc> 
+    <lastmod>2025-12-03T19:00:41.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/jsonapi-query-builder</loc> 
+    <lastmod>2025-11-05T07:18:08.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-acquia-dam-images-drupal-canvas</loc> 
+    <lastmod>2026-01-14T11:32:43.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/duplicating-site</loc> 
+    <lastmod>2026-01-12T12:40:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/changing-language-site</loc> 
+    <lastmod>2025-12-03T20:32:19.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/sitemap-management</loc> 
+    <lastmod>2026-01-26T17:26:12.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/integration-acquia-search-powered-searchstax</loc> 
+    <lastmod>2026-02-25T13:20:02.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/setting-acquia-search-powered-searchstax-integration</loc> 
+    <lastmod>2026-02-23T13:48:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/help-and-support</loc> 
+    <lastmod>2026-01-12T12:40:20.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/integration-writing-assistant</loc> 
+    <lastmod>2026-01-07T11:25:49.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/requesting-access-writing-assistant</loc> 
+    <lastmod>2026-01-07T11:34:37.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/using-writing-assistant</loc> 
+    <lastmod>2026-01-07T11:35:25.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/configuring-password-protection-site</loc> 
+    <lastmod>2025-12-11T15:44:09.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/acquia-site-template</loc> 
+    <lastmod>2025-12-18T07:24:44.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/cpg-multi-brand-site-template</loc> 
+    <lastmod>2025-12-19T11:20:10.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/eudaimonia-university-site-template</loc> 
+    <lastmod>2025-12-19T11:44:08.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/creating-components-ai</loc> 
+    <lastmod>2026-02-02T08:31:27.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+  <url>
+     <loc>https://docs.acquia.com/acquia-source/source-product-privacy-notice</loc> 
+    <lastmod>2026-02-25T15:58:21.000Z</lastmod> 
+    <changefreq>weekly</changefreq> 
+    <priority>0.6</priority>   </url>
+</urlset>

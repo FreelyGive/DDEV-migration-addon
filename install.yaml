@@ -1,0 +1,23 @@
+name: canvas-migration
+project_files:
+  - .ddev/config.canvas-migration.yaml
+  - .ddev/commands/nodejs/clone
+  - .ddev/web-build/Dockerfile.canvas-migration
+  - website-to-components
+  - .claude/skills/website-to-components
+  - .claude/skills/website-to-components-multipage
+  - .claude/skills/migration-component-authoring
+  - .claude/skills/migration-create-component
+  - .claude/skills/migration-stories
+  - .claude/skills/acquia-source-setup
+  - .claude/skills/acquia-source-docs-explorer
+  - .claude/skills/typography-audit
+  - .claude/skills/webpage-sections-splitter
+global_files: []
+pre_install_actions: []
+post_install_actions:
+  - "echo ''"
+  - "echo 'Canvas Migration addon installed.'"
+  - "echo 'Run: ddev restart'"
+  - "echo 'Then use: ddev clone https://your-site.com'"
+removal_actions: []

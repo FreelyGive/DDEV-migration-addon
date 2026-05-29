@@ -1,0 +1,18 @@
+#!/bin/bash
+## Description: Clone a website into canvas components
+## Usage: clone <url> [--clean] [--no-mobile]
+## Example: ddev clone https://example.com
+
+set -e
+
+URL="$1"
+if [ -z "$URL" ]; then
+  echo "Usage: ddev clone <url> [--clean] [--no-mobile]"
+  echo "  e.g. ddev clone https://example.com"
+  exit 1
+fi
+
+shift  # remaining args passed through to run.js
+
+cd /var/www/html/website-to-components
+node scripts/run.js "$URL" "$@"

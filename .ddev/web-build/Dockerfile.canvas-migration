@@ -1,0 +1,11 @@
+#ddev-generated
+# Install agent-browser globally.
+# Chrome for Testing does not provide ARM64 Linux builds, so install Chromium
+# from the system package manager instead and point agent-browser at it.
+# Safe to run even if agent-browser is already installed (e.g. via DDEV-Canvas addon).
+RUN npm list -g agent-browser &>/dev/null || npm install -g agent-browser
+RUN dpkg -l chromium &>/dev/null || (apt-get update && apt-get install -y --no-install-recommends chromium && rm -rf /var/lib/apt/lists/*)
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# Add the mkcert certificate authority for Chromium NSS.
+RUN dpkg -l libnss3-tools &>/dev/null || (apt-get update && apt-get install -y libnss3-tools && rm -rf /var/lib/apt/lists/*)
