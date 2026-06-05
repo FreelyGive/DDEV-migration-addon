@@ -1,11 +1,11 @@
 ---
 name: acquia-source-create-pages
-description: Use when creating pages programmatically in Acquia Source via JSON:API — POSTing new nodes, authenticating with OAuth, enabling write access, or automating content creation from scripts or migration workflows.
+description: Use when creating or managing content programmatically in Acquia Source via JSON:API — POSTing nodes, taxonomy terms, or media; authenticating with OAuth; enabling write access; or automating content creation from scripts or migration workflows.
 ---
 
-# Creating Pages in Acquia Source via JSON:API
+# Creating Content in Acquia Source via JSON:API
 
-Acquia Source exposes a full JSON:API. Pages (and other content types) can be created programmatically via POST requests once write access is enabled.
+Acquia Source exposes a full JSON:API. Pages, taxonomy terms, media, and other content can be created programmatically via POST requests once write access is enabled.
 
 ## Step 1: Enable Write Access
 
@@ -73,6 +73,86 @@ Use the **JSON:API Query Builder** (left sidebar → **API > JSON:API Query Buil
 - Discover available entity types and bundles
 - Preview real responses before scripting
 - Copy generated request URLs and code samples
+
+## Creating Taxonomy Terms via API
+
+Taxonomy vocabularies (e.g. `tags`, `categories`) contain terms. POST a term the same way as a node:
+
+```javascript
+await fetch('https://your-site.com/jsonapi/taxonomy_term/tags', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${access_token}`,
+    'Content-Type': 'application/vnd.api+json',
+    Accept: 'application/vnd.api+json',
+  },
+  body: JSON.stringify({
+    data: {
+      type: 'taxonomy_term--tags',
+      attributes: {
+        name: 'My Tag',
+        description: { value: 'Optional description', format: 'plain_text' },
+      },
+      // Optional: set parent term for hierarchical vocabularies
+      relationships: {
+        parent: {
+          data: [{ type: 'taxonomy_term--tags', id: 'PARENT_TERM_UUID' }],
+        },
+      },
+    },
+  }),
+});
+```
+
+**Built-in vocabularies:**
+
+| Vocabulary | Bundle | Notes |
+|---|---|---|
+| Tags | `tags` | Flat, keyword labeling |
+| Categories | `categories` | Hierarchical, parent-child supported |
+
+Custom vocabularies follow the same pattern — use the machine name as the bundle.
+
+## Content Types & Fields
+
+Content types are templates that define the fields available on a node. Each type has a bundle name used in API endpoints.
+
+**Default content types:**
+
+| Content type | Bundle | Typical fields |
+|---|---|---|
+| Page | `page` | title, body |
+| Article | `article` | title, body, author, tags, publication date |
+| Event (custom) | `event` | title, event_date, location, thumbnail, description |
+
+**Field types available:**
+
+| Type | Notes |
+|---|---|
+| Text (plain) | Single line, 255 char max |
+| Text area | Multiline, formatted |
+| Numeric | Numbers only |
+| Date | Calendar picker |
+| Select / Multiselect | Predefined values |
+| Email | Validated email format |
+| URL | Validated URL format |
+
+### Creating a Content Type (admin UI only)
+
+Content types cannot be created via JSON:API — use the admin UI:
+
+1. **Structure > Content types > Overview > Add content type**
+2. Fill in the form, configure menu/search/workflow/scheduling settings
+3. Click **Save**
+4. Add fields via **Structure > Content types > [type] > Manage fields**
+
+### Creating a Vocabulary (admin UI only)
+
+Vocabularies also require the admin UI:
+
+1. **Structure > Taxonomy > Overview > Add vocabulary**
+2. Fill in the form, click **Save**
+3. Then add terms via the API or UI
 
 ## No MCP Available
 
