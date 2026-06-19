@@ -12,7 +12,7 @@
     "pipeline": "npm run screenshot && npm run split && npm run detect && npm run report",
     "run": "node scripts/run.js",
     "finish": "node scripts/finish.js",
-    "sitemap": "node jobs/05-sitemap.js",
+    "sitemap": "node jobs/00-sitemap.js",
     "run-all": "node scripts/run-all.js",
     "finish-all": "node scripts/finish-all.js",
     "audit": "node scripts/audit-content.js"
