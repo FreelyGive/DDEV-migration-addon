@@ -18,6 +18,7 @@ function clientStub() {
     createPage: async (p) => { calls.pages.push(p.path); return { id: "n-" + p.path }; },
     updatePage: async (id) => ({ id }),
     upsertMenuLink: async (l) => { calls.menuLinks.push(l.title); return { id: "m" }; },
+    getToken: async () => "tok",
   };
 }
 

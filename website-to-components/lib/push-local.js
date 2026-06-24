@@ -5,10 +5,7 @@ import { checkLocalReady } from "./bootstrap-check.js";
 export async function pushToLocal({ env, menus, pages, runCanvasPush, client, log }) {
   const ready = await checkLocalReady({
     env,
-    probeToken: async (scope) => {
-      if (typeof client.getToken !== "function") return "ok";
-      return client.getToken(scope).catch(() => null);
-    },
+    probeToken: (scope) => client.getToken(scope).catch(() => null),
   });
   if (!ready.ok) {
     return { ok: false, report: ready.problems.join("\n") };
