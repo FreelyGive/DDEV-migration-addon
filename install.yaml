@@ -33,4 +33,7 @@ post_install_actions:
   - "echo 'Canvas Migration addon installed.'"
   - "echo 'Run: ddev restart'"
   - "echo 'Then use: ddev clone https://your-site.com'"
+  - "echo 'Whole-site migration scope requires the claude-seo plugin (Python 3.10+).'"
+  - "echo 'Install: /plugin marketplace add AgricIDaniel/claude-seo  then  /plugin install'"
+  - "echo 'Without it, --scope site falls back to menu-reachable pages.'"
 removal_actions: []
