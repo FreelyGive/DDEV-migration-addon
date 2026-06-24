@@ -1773,9 +1773,9 @@ The highest-quality clones do NOT copy pixels. They reconstruct:
 
 A perfect clone is essentially reverse-engineering the original design system from rendered output.
 
-## Step 9 — Auto-push to local Drupal (MANDATORY after green QC)
+## Step 12 — Auto-push to local Drupal (MANDATORY after green QC)
 
-Only proceed when ALL quality gates pass: `npx canvas validate --all && npx canvas build`,
+This is the final pipeline step, run after Steps 0–11 complete. Only proceed when ALL quality gates pass: `npx canvas validate --all && npx canvas build`,
 visual diff, section diff, and content audit. Then push the result to the local DDEV-Canvas
 site (the default target):
 
