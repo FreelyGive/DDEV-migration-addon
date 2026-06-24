@@ -33,7 +33,7 @@ export function makeClient({ siteUrl, prefix = "jsonapi", clientId, clientSecret
   }
 
   async function findPageByPath(path) {
-    const url = api(`/node/page?filter[path][value]=${encodeURIComponent(path)}`);
+    const url = api(`/node/page?filter[path.alias][value]=${encodeURIComponent(path)}`);
     const res = await authedFetch(url, "GET");
     const data = (await res.json()).data || [];
     return data.length ? { id: data[0].id, path } : null;

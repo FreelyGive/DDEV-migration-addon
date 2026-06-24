@@ -31,6 +31,20 @@ test("getToken posts client_credentials and returns access_token", async () => {
   assert.equal(await client.getToken("member"), "tok123");
 });
 
+test("findPageByPath queries the alias filter and maps a match", async () => {
+  let requestedPath = "";
+  const client = makeClient({ ...base, fetchImpl: (url, opts = {}) => {
+    const u = new URL(url);
+    if (u.pathname === "/oauth/token") return Promise.resolve({ ok: true, status: 200, json: async () => ({ access_token: "t" }) });
+    requestedPath = u.pathname + u.search;
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [{ id: "abc-123" }] }) });
+  }});
+  const found = await client.findPageByPath("/about");
+  assert.deepEqual(found, { id: "abc-123", path: "/about" });
+  assert.match(requestedPath, /filter\[path\.alias\]\[value\]=%2Fabout/);
+  assert.doesNotMatch(requestedPath, /filter\[path\]\[value\]/);
+});
+
 test("findPageByPath returns null when none match", async () => {
   const client = makeClient({ ...base, fetchImpl: fakeFetch({
     "POST /oauth/token": () => ({ json: { access_token: "t" } }),
