@@ -1,0 +1,40 @@
+// website-to-components/jobs/00b-sitemap-xml.js
+//
+// Whole-site discovery. Real sitemap retrieval + HTTP-200 validation is
+// delegated to the claude-seo `seo-sitemap` skill (Mode 1) at the call site;
+// this module owns parsing and the menu-reachable fallback so it stays
+// unit-testable without network access.
+
+export function parseSitemapXml(xml) {
+  if (!xml) return [];
+  const out = [];
+  const re = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let m;
+  while ((m = re.exec(xml))) out.push(m[1]);
+  return out;
+}
+
+function parseRobotsSitemap(txt) {
+  if (!txt) return null;
+  const m = txt.match(/^\s*Sitemap:\s*(\S+)/im);
+  return m ? m[1] : null;
+}
+
+export async function discoverSiteUrls({ origin, fetchXml, listMenuPages, log }) {
+  for (const path of ["/sitemap.xml", "/sitemap_index.xml"]) {
+    const xml = await fetchXml(path);
+    const urls = parseSitemapXml(xml);
+    if (urls.length) return { source: "sitemap", urls };
+  }
+  const robots = await fetchXml("/robots.txt");
+  const ref = parseRobotsSitemap(robots);
+  if (ref) {
+    const refPath = ref.startsWith("http") ? new URL(ref).pathname : ref;
+    const xml = await fetchXml(refPath);
+    const urls = parseSitemapXml(xml);
+    if (urls.length) return { source: "sitemap", urls };
+  }
+  const menuUrls = await listMenuPages();
+  log(`No sitemap.xml found. Migrating ${menuUrls.length} pages reachable from menus instead.`);
+  return { source: "menus", urls: menuUrls };
+}
