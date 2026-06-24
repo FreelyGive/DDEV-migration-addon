@@ -2,25 +2,28 @@
 //
 // Thin local JSON:API + OAuth client. Injectable fetchImpl for testing.
 
+const FULL_SCOPE = "canvas:asset_library canvas:js_component member";
+
 export function makeClient({ siteUrl, prefix = "jsonapi", clientId, clientSecret, fetchImpl }) {
   const f = fetchImpl || globalThis.fetch;
   const base = siteUrl.endsWith("/") ? siteUrl : siteUrl + "/";
   const api = (p) => `${base}${prefix}${p}`;
-  let cachedToken = null;
+  const tokenCache = new Map();
 
-  async function getToken(scope) {
+  async function getToken(scope = FULL_SCOPE) {
+    if (tokenCache.has(scope)) return tokenCache.get(scope);
     const res = await f(`${base}oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope }).toString(),
     });
     const data = await res.json();
-    cachedToken = data.access_token;
-    return cachedToken;
+    tokenCache.set(scope, data.access_token);
+    return data.access_token;
   }
 
-  async function authedFetch(url, method, body, scope = "member") {
-    const token = cachedToken || (await getToken(scope));
+  async function authedFetch(url, method, body, scope = FULL_SCOPE) {
+    const token = await getToken(scope);
     return f(url, {
       method,
       headers: {
@@ -68,9 +71,17 @@ export function makeClient({ siteUrl, prefix = "jsonapi", clientId, clientSecret
   }
 
   async function upsertMenuLink({ menu, title, url, weight = 0 }) {
-    const body = { data: { type: "menu_link_content--menu_link_content", attributes: {
-      title, link: { uri: url.startsWith("/") ? `internal:${url}` : url }, menu_name: menu, weight, enabled: true,
-    } } };
+    const uri = url.startsWith("/") ? `internal:${url}` : url;
+    const listUrl = api(`/menu_link_content/menu_link_content?filter[menu_name][value]=${encodeURIComponent(menu)}&filter[title][value]=${encodeURIComponent(title)}`);
+    const existing = ((await (await authedFetch(listUrl, "GET")).json()).data) || [];
+    const attributes = { title, link: { uri }, menu_name: menu, weight, enabled: true };
+    if (existing.length) {
+      const id = existing[0].id;
+      const body = { data: { type: "menu_link_content--menu_link_content", id, attributes } };
+      const res = await authedFetch(api(`/menu_link_content/menu_link_content/${id}`), "PATCH", body);
+      return { id: (await res.json()).data.id };
+    }
+    const body = { data: { type: "menu_link_content--menu_link_content", attributes } };
     const res = await authedFetch(api("/menu_link_content/menu_link_content"), "POST", body);
     return { id: (await res.json()).data.id };
   }

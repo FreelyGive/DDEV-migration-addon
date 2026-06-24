@@ -60,3 +60,32 @@ test("bundleHasRevisions reads new_revision flag", async () => {
   })});
   assert.equal(await client.bundleHasRevisions("page"), true);
 });
+
+test("authedFetch writes use the full management scope", async () => {
+  let tokenScope = "";
+  const client = makeClient({ ...base, fetchImpl: (url, opts = {}) => {
+    const u = new URL(url);
+    if (u.pathname === "/oauth/token") {
+      tokenScope = new URLSearchParams(opts.body).get("scope");
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ access_token: "t" }) });
+    }
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: { id: "n1" } }) });
+  }});
+  await client.createPage({ title: "T", path: "/t", published: true });
+  assert.equal(tokenScope, "canvas:asset_library canvas:js_component member");
+});
+
+test("upsertMenuLink updates an existing link instead of duplicating", async () => {
+  const calls = [];
+  const client = makeClient({ ...base, fetchImpl: (url, opts = {}) => {
+    const u = new URL(url);
+    const method = opts.method || "GET";
+    if (u.pathname === "/oauth/token") return Promise.resolve({ ok: true, status: 200, json: async () => ({ access_token: "t" }) });
+    calls.push(`${method} ${u.pathname}`);
+    if (method === "GET") return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: [{ id: "ml-1", attributes: { title: "Home" } }] }) });
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: { id: "ml-1" } }) });
+  }});
+  await client.upsertMenuLink({ menu: "main", title: "Home", url: "/", weight: 0 });
+  assert.ok(calls.some(c => c.startsWith("PATCH")), "should PATCH the existing link");
+  assert.ok(!calls.some(c => c.startsWith("POST")), "should not POST a duplicate");
+});
