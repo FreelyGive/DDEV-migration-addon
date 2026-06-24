@@ -15,6 +15,7 @@ const meta = JSON.parse(readFileSync(metaPath, "utf8"));
 const origin = new URL(url).origin;
 const scope = meta.scope || "homepage";
 
+// meta.menus is now produced by run.js (via extractMenusFromSnapshot + normalizeMenus); fall back to sitemap for older output.
 const rawMenus = meta.menus || { main: meta.sitemap?.map(s => ({ label: s.text, url: s.href })) || [], footer: [], sidebar: [] };
 let menus = normalizeMenus(rawMenus, origin);
 

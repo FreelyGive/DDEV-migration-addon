@@ -73,6 +73,17 @@ function parseBrowserJson(raw) {
   }
 }
 
+// Partition collected nav links into named menus by their source region.
+// `links` is { region: "main"|"footer"|"sidebar"|other, label, url }[].
+export function extractMenusFromSnapshot(links, origin) {
+  const menus = { main: [], footer: [], sidebar: [] };
+  for (const { region, label, url } of links || []) {
+    const bucket = region === "footer" ? "footer" : region === "sidebar" ? "sidebar" : "main";
+    menus[bucket].push({ label, url });
+  }
+  return menus;
+}
+
 export async function run(url) {
   const { siteDir, metaPath } = sitePaths(url);
   ensureDir(siteDir);
@@ -179,7 +190,46 @@ export async function run(url) {
         });
       });
 
-      return JSON.stringify({ rootKind, pages });
+      // Collect footer links
+      const footerLinks = [];
+      const footerSeen = new Set();
+      document.querySelectorAll('footer a[href]').forEach(function(a) {
+        let u;
+        try { u = new URL(a.href, location.href); } catch(e) { return; }
+        if (u.origin !== origin) return;
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+        const path = u.pathname.replace(/\/+$/, '') || '/';
+        const text = a.textContent.trim().replace(/\s+/g, ' ');
+        if (isJunk(a.href, text)) return;
+        if (footerSeen.has(path)) return;
+        footerSeen.add(path);
+        footerLinks.push({ region: 'footer', label: text.substring(0, 80), url: u.origin + path });
+      });
+
+      // Collect sidebar links
+      const sidebarLinks = [];
+      const sidebarSeen = new Set();
+      const sidebarSelectors = ['aside a[href]', '[role="complementary"] a[href]'];
+      const sidebarEls = [...new Set(sidebarSelectors.flatMap(sel => [...document.querySelectorAll(sel)]))];
+      sidebarEls.forEach(function(a) {
+        let u;
+        try { u = new URL(a.href, location.href); } catch(e) { return; }
+        if (u.origin !== origin) return;
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+        const path = u.pathname.replace(/\/+$/, '') || '/';
+        const text = a.textContent.trim().replace(/\s+/g, ' ');
+        if (isJunk(a.href, text)) return;
+        if (sidebarSeen.has(path)) return;
+        sidebarSeen.add(path);
+        sidebarLinks.push({ region: 'sidebar', label: text.substring(0, 80), url: u.origin + path });
+      });
+
+      // Build menusRaw: main links come from the already-collected pages array
+      const mainLinks = pages.map(function(p) { return { region: 'main', label: p.label, url: p.url }; });
+      const allLinks = [...mainLinks, ...footerLinks, ...sidebarLinks];
+      const menusRaw = { main: mainLinks.map(function(l) { return { label: l.label, url: l.url }; }), footer: footerLinks.map(function(l) { return { label: l.label, url: l.url }; }), sidebar: sidebarLinks.map(function(l) { return { label: l.label, url: l.url }; }) };
+
+      return JSON.stringify({ rootKind, pages, menusRaw });
     })()
   `);
 

@@ -12,6 +12,7 @@ import { siteSlug, sitePaths, cleanPage } from "../lib/paths.js";
 import { resolveScope } from "../lib/scope.js";
 import { resolveDiscovery } from "../lib/discovery.js";
 import { run as discoverSitemapMenus } from "../jobs/00-sitemap.js";
+import { normalizeMenus } from "../lib/menu.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -92,6 +93,17 @@ const discovery = await resolveDiscovery({
 });
 meta.discovery = { source: discovery.source, pages: discovery.pages };
 console.log(`\n==> Discovery (${discovery.source}): ${discovery.pages.length} page(s)`);
+
+// Menus come from nav extraction (not the sitemap, which has no hierarchy).
+try {
+  const sm = await discoverSitemapMenus(url);
+  const rawMenus = sm.menusRaw || { main: (sm.pages || []).map(p => ({ label: p.label, url: p.url })), footer: [], sidebar: [] };
+  meta.menus = normalizeMenus(rawMenus, origin);
+} catch (e) {
+  console.log(`  Menu extraction skipped: ${e.message}`);
+  meta.menus = { main: [], footer: [], sidebar: [] };
+}
+
 writeFileSync(sitePaths(url).metaPath, JSON.stringify(meta, null, 2));
 const desktopScreenshot = meta.screenshotPath;
 const mobileScreenshot = meta.mobile?.screenshotPath ?? null;
