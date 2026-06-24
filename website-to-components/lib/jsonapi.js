@@ -11,8 +11,8 @@ export function makeClient({ siteUrl, prefix = "jsonapi", clientId, clientSecret
   async function getToken(scope) {
     const res = await f(`${base}oauth/token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope }),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "client_credentials", client_id: clientId, client_secret: clientSecret, scope }).toString(),
     });
     const data = await res.json();
     cachedToken = data.access_token;

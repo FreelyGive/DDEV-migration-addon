@@ -8,7 +8,15 @@ function fakeFetch(routes) {
     const key = `${opts.method || "GET"} ${new URL(url).pathname}`;
     const handler = routes[key];
     if (!handler) throw new Error(`no fake route for ${key}`);
-    const body = opts.body ? JSON.parse(opts.body) : null;
+    let body = null;
+    if (opts.body) {
+      const ct = (opts.headers && (opts.headers["Content-Type"] || opts.headers["content-type"])) || "";
+      if (ct.includes("application/json")) {
+        body = JSON.parse(opts.body);
+      } else {
+        try { body = JSON.parse(opts.body); } catch { body = opts.body; }
+      }
+    }
     const res = handler(body);
     return { ok: true, status: res.status || 200, json: async () => res.json };
   };
