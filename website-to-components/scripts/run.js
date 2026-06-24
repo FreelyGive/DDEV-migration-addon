@@ -10,6 +10,8 @@ import { run as downloadResources } from "../jobs/03c-download-resources.js";
 import { run as generateBrandKit } from "../jobs/03d-generate-brand-kit.js";
 import { siteSlug, sitePaths, cleanPage } from "../lib/paths.js";
 import { resolveScope } from "../lib/scope.js";
+import { resolveDiscovery } from "../lib/discovery.js";
+import { run as discoverSitemapMenus } from "../jobs/00-sitemap.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -71,6 +73,25 @@ await generateBrandKit(url);
 // Read meta to get screenshot paths for the handoff
 const meta = JSON.parse(readFileSync(sitePaths(url).metaPath, "utf8"));
 meta.scope = scope;
+const origin = new URL(url).origin;
+const discovery = await resolveDiscovery({
+  scope,
+  origin,
+  homepageUrl: origin + "/",
+  fetchXml: async (p) => {
+    try {
+      const r = await fetch(origin + p);
+      return r.ok ? await r.text() : null;
+    } catch { return null; }
+  },
+  listMenuPages: async () => {
+    const sm = await discoverSitemapMenus(url);
+    return (sm.pages || []).map(pg => pg.url);
+  },
+  log: (m) => console.log(m),
+});
+meta.discovery = { source: discovery.source, pages: discovery.pages };
+console.log(`\n==> Discovery (${discovery.source}): ${discovery.pages.length} page(s)`);
 writeFileSync(sitePaths(url).metaPath, JSON.stringify(meta, null, 2));
 const desktopScreenshot = meta.screenshotPath;
 const mobileScreenshot = meta.mobile?.screenshotPath ?? null;

@@ -20,9 +20,25 @@ function parseRobotsSitemap(txt) {
   return m ? m[1] : null;
 }
 
+export function isSitemapIndex(xml) {
+  return /<sitemapindex[\s>]/i.test(xml || "");
+}
+
 export async function discoverSiteUrls({ origin, fetchXml, listMenuPages, log }) {
   for (const path of ["/sitemap.xml", "/sitemap_index.xml"]) {
     const xml = await fetchXml(path);
+    if (!xml) continue;
+    if (isSitemapIndex(xml)) {
+      const childLocs = parseSitemapXml(xml); // <loc> entries are child sitemaps
+      const all = [];
+      for (const child of childLocs) {
+        const childPath = child.startsWith("http") ? new URL(child).pathname : child;
+        const childXml = await fetchXml(childPath);
+        all.push(...parseSitemapXml(childXml));
+      }
+      if (all.length) return { source: "sitemap", urls: all };
+      continue;
+    }
     const urls = parseSitemapXml(xml);
     if (urls.length) return { source: "sitemap", urls };
   }
@@ -35,6 +51,6 @@ export async function discoverSiteUrls({ origin, fetchXml, listMenuPages, log })
     if (urls.length) return { source: "sitemap", urls };
   }
   const menuUrls = await listMenuPages();
-  log(`No sitemap.xml found. Migrating ${menuUrls.length} pages reachable from menus instead.`);
+  log("No sitemap.xml found. Migrating " + menuUrls.length + " pages reachable from menus instead.");
   return { source: "menus", urls: menuUrls };
 }
