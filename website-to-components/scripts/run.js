@@ -2,12 +2,14 @@
 import { writeFileSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { createInterface } from "node:readline/promises";
 import { run as screenshot } from "../jobs/01-screenshot.js";
 import { run as screenshotMobile } from "../jobs/01b-screenshot-mobile.js";
 import { run as extractAssets } from "../jobs/03b-extract-assets.js";
 import { run as downloadResources } from "../jobs/03c-download-resources.js";
 import { run as generateBrandKit } from "../jobs/03d-generate-brand-kit.js";
 import { siteSlug, sitePaths, cleanPage } from "../lib/paths.js";
+import { resolveScope } from "../lib/scope.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -23,6 +25,18 @@ if (!url) {
   console.error("  e.g. node run.js https://vercel.com");
   process.exit(1);
 }
+
+async function promptUser(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try { return await rl.question(question); } finally { rl.close(); }
+}
+
+const scope = await resolveScope({
+  argv: process.argv,
+  isTTY: process.stdin.isTTY === true,
+  prompt: promptUser,
+});
+console.log(`\n==> Migration scope: ${scope}`);
 
 const doClean = process.argv.includes('--clean') || process.env.CLEAN === '1';
 
@@ -56,6 +70,8 @@ await generateBrandKit(url);
 
 // Read meta to get screenshot paths for the handoff
 const meta = JSON.parse(readFileSync(sitePaths(url).metaPath, "utf8"));
+meta.scope = scope;
+writeFileSync(sitePaths(url).metaPath, JSON.stringify(meta, null, 2));
 const desktopScreenshot = meta.screenshotPath;
 const mobileScreenshot = meta.mobile?.screenshotPath ?? null;
 

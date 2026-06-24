@@ -1,14 +1,14 @@
 #!/bin/bash
 ## Description: Clone a website into canvas components
-## Usage: clone <url> [--clean] [--no-mobile]
-## Example: ddev clone https://example.com
+## Usage: clone <url> [--scope homepage|menus|site] [--clean] [--no-mobile]
+## Example: ddev clone https://example.com --scope site
 
 set -e
 
 URL="$1"
 if [ -z "$URL" ]; then
-  echo "Usage: ddev clone <url> [--clean] [--no-mobile]"
-  echo "  e.g. ddev clone https://example.com"
+  echo "Usage: ddev clone <url> [--scope homepage|menus|site] [--clean] [--no-mobile]"
+  echo "  e.g. ddev clone https://example.com --scope site"
   exit 1
 fi
 
