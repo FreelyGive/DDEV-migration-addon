@@ -28,7 +28,7 @@ test("getToken posts client_credentials and returns access_token", async () => {
   const client = makeClient({ ...base, fetchImpl: fakeFetch({
     "POST /oauth/token": () => ({ json: { access_token: "tok123" } }),
   })});
-  assert.equal(await client.getToken("member"), "tok123");
+  assert.equal(await client.getToken("canvas:js_component"), "tok123");
 });
 
 test("findPageByPath queries the alias filter and maps a match", async () => {
@@ -72,7 +72,7 @@ test("authedFetch writes use the full management scope", async () => {
     return Promise.resolve({ ok: true, status: 200, json: async () => ({ data: { id: "n1" } }) });
   }});
   await client.createPage({ title: "T", path: "/t", published: true });
-  assert.equal(tokenScope, "canvas:asset_library canvas:js_component member");
+  assert.equal(tokenScope, "canvas:asset_library canvas:js_component");
 });
 
 test("upsertMenuLink updates an existing link instead of duplicating", async () => {

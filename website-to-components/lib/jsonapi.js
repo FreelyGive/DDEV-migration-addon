@@ -2,7 +2,10 @@
 //
 // Thin local JSON:API + OAuth client. Injectable fetchImpl for testing.
 
-const FULL_SCOPE = "canvas:asset_library canvas:js_component member";
+// Local Canvas write scope. NOTE: `member` is a remote/Acquia content-OAuth
+// scope and is NOT a valid local oauth2_scope — including it makes local token
+// requests fail with invalid_scope. Keep this to the two local Canvas scopes.
+const FULL_SCOPE = "canvas:asset_library canvas:js_component";
 
 export function makeClient({ siteUrl, prefix = "jsonapi", clientId, clientSecret, fetchImpl }) {
   const f = fetchImpl || globalThis.fetch;

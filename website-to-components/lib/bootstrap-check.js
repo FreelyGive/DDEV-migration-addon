@@ -7,9 +7,9 @@ export async function checkLocalReady({ env, probeToken }) {
   }
   if (problems.length) return { ok: false, problems };
 
-  const token = await probeToken("member");
+  const token = await probeToken("canvas:asset_library canvas:js_component");
   if (!token) {
-    problems.push("OAuth token request failed for the local site. Check the canvas_oauth client at /admin/config/services/consumer: Client Credentials grant enabled, scopes canvas:asset_library + canvas:js_component + member, and a Drupal user assigned (missing user → 401).");
+    problems.push("OAuth token request failed for the local site. Check the canvas_oauth client at /admin/config/services/consumer: Client Credentials grant enabled, scopes canvas:asset_library + canvas:js_component, and a Drupal user assigned (missing user → 401).");
     return { ok: false, problems };
   }
   return { ok: true, problems: [] };
