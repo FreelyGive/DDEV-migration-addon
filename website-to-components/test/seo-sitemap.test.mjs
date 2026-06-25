@@ -64,3 +64,28 @@ test("validateSitemapUrls drops a URL whose fetch throws", async () => {
   const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
   assert.deepEqual(result, []);
 });
+
+test("validateSitemapUrls requests with redirect:manual", async () => {
+  let seenOpts = null;
+  const fetchImpl = async (url, opts) => { seenOpts = opts; return resp({ status: 200, finalUrl: url }); };
+  await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.equal(seenOpts?.redirect, "manual");
+});
+
+test("validateSitemapUrls keeps a URL with no canonical tag", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: "<html><body>no canonical here</body></html>" });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, ["https://example.com/page"]);
+});
+
+test("validateSitemapUrls keeps a URL whose relative canonical resolves to itself", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: '<link rel="canonical" href="/page">' });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, ["https://example.com/page"]);
+});
+
+test("validateSitemapUrls drops a URL whose relative canonical points elsewhere", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: '<link rel="canonical" href="/other">' });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
+});
