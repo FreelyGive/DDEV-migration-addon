@@ -102,10 +102,13 @@ else {
 
 // Emit the machine-readable result line consumed by ddev canvas-bootstrap (Task A3).
 $site_url = getenv('DDEV_PRIMARY_URL') ?: '__keep__';
+// JSON_UNESCAPED_SLASHES: without it json_encode turns the https:// URL into
+// https:\/\/ , and the shell command writes that escaped form verbatim into
+// .env, corrupting CANVAS_LOCAL_SITE_URL.
 $result = json_encode([
   'client_id'       => $result_client_id,
   'client_secret'   => $result_client_secret,
   'site_url'        => $site_url,
   'jsonapi_prefix'  => 'jsonapi',
-]);
+], JSON_UNESCAPED_SLASHES);
 fwrite(STDOUT, "[bootstrap-result] $result\n");
