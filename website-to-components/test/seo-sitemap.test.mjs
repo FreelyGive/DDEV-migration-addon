@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSeoSitemapOutput, discoverWithSeoSitemap } from "../lib/seo-sitemap.js";
+import { parseSeoSitemapOutput, discoverWithSeoSitemap, defaultSeoSitemapRunner } from "../lib/seo-sitemap.js";
 
 test("parseSeoSitemapOutput extracts same-origin URLs and dedupes", () => {
   const text = [
@@ -37,4 +37,26 @@ test("discoverWithSeoSitemap returns parsed urls when installed", async () => {
   });
   assert.equal(res.source, "seo-sitemap");
   assert.deepEqual(res.urls, ["https://example.com/", "https://example.com/pricing"]);
+});
+
+test("defaultSeoSitemapRunner.runSkill passes the origin to the skill and returns stdout", async () => {
+  const calls = [];
+  const execImpl = async (cmd, args) => {
+    calls.push({ cmd, args });
+    return { code: 0, stdout: "- https://example.com/\n", stderr: "" };
+  };
+  const runner = defaultSeoSitemapRunner({ execImpl });
+  const out = await runner.runSkill("https://example.com");
+  assert.equal(out, "- https://example.com/\n");
+  assert.ok(calls.length === 1);
+  // The origin must reach the underlying command somewhere in its argv/stdin.
+  const joined = JSON.stringify(calls[0]);
+  assert.ok(joined.includes("https://example.com"));
+});
+
+test("defaultSeoSitemapRunner.isInstalled reflects exec success", async () => {
+  const ok = defaultSeoSitemapRunner({ execImpl: async () => ({ code: 0, stdout: "seo-sitemap", stderr: "" }) });
+  assert.equal(await ok.isInstalled(), true);
+  const no = defaultSeoSitemapRunner({ execImpl: async () => ({ code: 1, stdout: "", stderr: "not found" }) });
+  assert.equal(await no.isInstalled(), false);
 });
