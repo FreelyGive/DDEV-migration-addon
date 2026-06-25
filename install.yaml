@@ -37,5 +37,6 @@ post_install_actions:
   - "echo 'Then use: ddev clone https://your-site.com'"
   - "echo 'Whole-site migration scope requires the claude-seo plugin (Python 3.10+).'"
   - "echo 'Install: /plugin marketplace add AgricIDaniel/claude-seo  then  /plugin install'"
-  - "echo 'Without it, --scope site falls back to menu-reachable pages.'"
+  - "echo 'It is used via the seo-sitemap skill (Mode 1) for HTTP-200-validated, canonical whole-site discovery.'"
+  - "echo 'Without it, --scope site falls back to raw sitemap.xml parsing, then menu-reachable pages.'"
 removal_actions: []
