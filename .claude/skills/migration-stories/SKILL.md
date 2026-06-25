@@ -124,6 +124,19 @@ If you need a wrapper `<div>`, find the existing component that provides that
 layout (e.g., `section` for width constraints, `grid_container` for columns). If
 none exists, create a component first.
 
+> **Why this matters — it's not just style.** The deployed Acquia Source page is
+> a **flat tree of registered component instances + their inputs/slots**. Raw
+> HTML in a story (a `<ul><li><a>` link list, a `<div className="...">` wrapper)
+> renders fine in Storybook but is **dropped entirely on the deployed site** — it
+> is not a component, so it never travels. Symptom: "links/centering look right in
+> Storybook but the links are missing / the section is full-width on the live
+> site." Every visual concern must be a component **prop or slot**, never story
+> markup. For variable link lists, prefer a richtext `<ul>` string inside a
+> card/text component's HTML prop (most reliable on Source), or a slot of small
+> link components (kept shallow — deep `grid → card_container → button` nesting
+> collapses width on Source). Make the Storybook story **mirror the deployed
+> reality** so what you see in Storybook is what ships.
+
 ### Spacing Between Components
 
 Control spacing between components using the `spacer` component, NOT margins,

@@ -63,9 +63,22 @@ Run a targeted single-section pipeline:
 
 Do not build the full site. Do not discover the sitemap. Do not wait for user confirmation between steps.
 
-## Component naming — 3-letter site prefix (MANDATORY)
+## Reuse existing components BEFORE creating new ones (read before the prefix rule)
 
-Every component built by this pipeline **must be prefixed with a 3-letter identifier derived from the site hostname**. This prevents collisions when multiple sites' components coexist in the same Canvas project.
+**This is the single biggest source of rework.** The prefix rule below was written for a **greenfield scaffold with no existing components**. Most real migrations target a **mature component library** that already has `button`, `card`, `card_container`, `grid_container`, `heading`, `hero`, `image`, `two_column_text`, `header`, `footer`, `logo`, etc. In that case **REUSE-FIRST overrides the prefix rule**: prefer adding a **backward-compatible variant or optional prop** to an existing component over creating a new prefixed duplicate.
+
+**Mandatory Step 0.5 — existing-component audit (gate before any build):**
+1. List `src/components/` and read each `component.yml` + `index.jsx`.
+2. Produce a mapping table: every detected section → an existing component (with the variant/prop to add) OR "genuinely new".
+3. Only build a new prefixed component when **no existing component or variant** can represent the section.
+
+Generalisations that keep existing usages working (examples from real runs): add enum variants to `button` (e.g. a solid/pill variant); add optional `icon`/`tag`/null-safe-image props to `card`; add an accent prop to `heading`/`card_container`; add a `variant`/`overlay` to `hero`; generalise `logo` with optional `src/alt/href`. Each new prop must be **optional and default to the prior behaviour** so existing pages don't break.
+
+Components that are usually genuinely new (no good existing fit): the site header/mega-menu, a rich multi-column footer, bespoke carousels/sliders, video carousels. Don't force these into a one-line starter `footer`.
+
+## Component naming — 3-letter site prefix (only for genuinely-new components)
+
+Every **genuinely new** component built by this pipeline (one that survived the Step 0.5 reuse audit) **must be prefixed with a 3-letter identifier derived from the site hostname**. This prevents collisions when multiple sites' components coexist in the same Canvas project. **Do not prefix-and-duplicate a component that already exists** — extend the existing one with a variant instead (see the reuse section above).
 
 **Deriving the prefix:**
 - Take the primary domain name (strip `www.`, TLD, and hyphens)
@@ -376,6 +389,53 @@ Outputs:
 Read the suggestions section and feed them back into the next site's run (e.g. "Step 5 build was 60% of total — split the shared-components subagent into 2 smaller ones next time").
 
 ---
+
+## Process discipline — the rules that prevent the most rework
+
+The skill already states the exact-copy / extract-then-replicate rules. The failure mode that costs the most time and trust is **knowing the rule and not following it** — guessing from screenshots, fixing only what the user flagged, and verifying desktop-only. Treat the following as non-negotiable.
+
+**Definition of done (work is NOT done until ALL pass):**
+- [ ] Every section verified at **mobile (~390px) AND desktop** before reporting done. The site is usually mobile-first.
+- [ ] Each styled element's **computed styles diffed against the live source** — never a screenshot guess (see Step 20-style probes below and the `getComputedStyle` recipes throughout).
+- [ ] A **full top-to-bottom self-review against the live source** done after the last change — not just the one bug the user reported. After any fix, sweep for its siblings.
+- [ ] Verified on the **live deployed render**, not just Storybook (Storybook can hide hydration failures, missing links, full-width sections).
+
+**The live source site is the single source of truth — but the USER overrides a measurement for *intent*.** When a value is uncertain, MEASURE it once and replicate; do not toggle options across messages (it erodes trust). A fresh `getComputedStyle` is the source of truth for *replication*; the user is the source of truth for *what they want*. Never argue a measurement against an explicit instruction — apply it.
+
+**Re-fetch the live site; don't reuse a prior run's analysis.** Live sites drift (a card grid becomes pills, a 3-video grid becomes a single carousel, a new banner appears). Re-measure.
+
+### One-pass source extraction — do it up front (biggest time sink)
+
+The most expensive pattern observed was an incremental measure → build → screenshot → re-measure loop, repeatedly reopening the browser for one value at a time. **Collapse it into a single extraction pass run once after the screenshots, dumping everything to one JSON.** For every section capture in one shot:
+- `@font-face` rules + per-element computed typography (body/h1/h2/h3/nav/button/pill/badge/card-title).
+- Brand CSS vars resolved to literal values; the **content container width** (e.g. measure `.container` → it is often **not** 1280px — Bootstrap is 1140px).
+- For EVERY distinct styled element (pill, CTA, heading accent `::after`, link, list, card, section band): `backgroundColor, color, border*, borderRadius, padding, textAlign, fontWeight`, AND the **ancestry background chain** (walk parents until a non-transparent bg — this is how you catch section bands like a subtle grey panel without being asked).
+- All `<img>`/background-image URLs with alt, all sprite `<use>` refs, all video ids.
+
+Reopening the browser mid-build is the #1 wall-clock waster. Capture once, build from the JSON.
+
+### `agent-browser eval` gotchas (default these on every probe)
+
+- **Always wrap eval bodies in an IIFE:** `(() => { /* ... */ return JSON.stringify(x); })()`. Top-level `const`/`let` PERSIST across `eval --stdin` calls, so a second `const cs = …` throws `Identifier 'cs' has already been declared`.
+- **Always pass absolute paths** to any file-writing command (`screenshot "$(pwd)/out.png"`). Paths resolve relative to the **daemon cwd**, not yours — a relative path reports success but writes nothing findable.
+- **`currentColor` in inlined sprite icons resolves to the icon's OWN color, not body text.** When you inline a sprite `<symbol>` that uses `fill="currentColor"`, measure the source icon's computed `color` (`getComputedStyle(svg).color`) and set that exact value on your `<svg>`. Keep explicit stroke/fill hex baked in; only `currentColor` is variable.
+
+### Cloudflare / bot-protected source sites
+
+Detect early: `curl` → 403 with `cf-mitigated: challenge`, or page title "Just a moment…". Don't burn time on cookie/UA tricks (Cloudflare fingerprints TLS/JA3, so borrowed cookies still re-challenge), and don't use headless/CDP-launched Chromium (detected). **Recipe that works:** launch the user's real Google Chrome with `--remote-debugging-port=9222 --user-data-dir=<persistent-profile>`, have the **user solve the challenge manually once**, then `agent-browser connect 9222` to drive the verified tab. The profile persists `cf_clearance` across relaunches. To download assets from a protected origin, fetch them **in-page via the verified session** (`fetch(url,{credentials:'include'})` → base64 → decode), since host `curl` is blocked.
+
+### Verify mobile, not just desktop
+
+The site is usually mobile-first — don't sign off after checking desktop only. `agent-browser` has built-in viewport/device commands; use them:
+```bash
+agent-browser set viewport 390 844 2      # width height [scale] — emulate a phone at 2× retina
+agent-browser set device "iPhone 14"      # or emulate a named device
+agent-browser screenshot "$(pwd)/mobile.png"
+agent-browser set viewport 1280 720       # restore desktop when done
+```
+(Fallback only if a session genuinely can't resize — e.g. an externally-launched real-Chrome tab driven over a bare CDP connect: drive CDP directly via the page's `webSocketDebuggerUrl` from `http://localhost:9222/json` with the `ws` module — `Emulation.setDeviceMetricsOverride` then `Emulation.clearDeviceMetricsOverride`. Prefer the built-in commands above.)
+
+Common mobile-header spec to hit: hamburger far-left, logo centered (`mx-auto`), search/icon far-right. Render the menu slot (which owns the hamburger + drawer) in the header **top row** gated `md:hidden`, and the desktop nav row `hidden md:block`, so the hamburger isn't duplicated.
 
 ## Execution Instructions
 
@@ -1675,6 +1735,26 @@ Most clones fail here.
 **Interaction Indicators** — Infer: hover styles, clickability, focus targets, cursor expectations, animation hints.
 
 **Dynamic UI Clues** — Detect: carousels, sliders, expandable sections, sticky behavior, scroll-triggered animations.
+
+#### Deconstructing animated & interactive elements (sliders, carousels, drag-and-drop)
+
+A static screenshot can't tell you how an interactive element is *built*. Reverse-engineer it by translating the browser's visual state into structured text and diffing states with `agent-browser` (its ref-based snapshots strip DOM noise and are token-efficient). General strategy:
+
+1. **Baseline (layout & content).** `agent-browser snapshot -i` to get the accessibility tree with stable refs (`@e1`, `@e2`…); `agent-browser screenshot baseline.png` for a visual anchor. This maps the static architecture before anything animates.
+2. **Capture state changes (functionality).** Trigger the event on a ref (`agent-browser hover @e2` / `click @e2`), immediately re-snapshot, and **diff** against the baseline. The diff shows exactly what changed: new DOM nodes injected, text/`src` changes, class toggles (e.g. `.translate-x-0` → `.-translate-x-full` confirms a CSS/Tailwind track), or ARIA updates.
+3. **Mechanics & timing (animation).** Record a video of the interaction and step through it to estimate duration and easing (constant speed = `linear`; accelerate-then-decelerate = `ease-in-out`; overshoot/settle = spring physics). Use the profiler to tell pure-CSS transitions apart from JS-driven (Framer Motion / GSAP) frame-by-frame layout.
+4. **Data flow (dynamic content).** Use network monitoring to see whether an interaction fires an API call — separates the visual front-end animation from back-end logic (e.g. a button that becomes a spinner while fetching).
+
+**Carousels / multi-image heroes:**
+- **Auto-play?** Snapshot, wait 5–10s without interacting, snapshot again, diff. If the active image changed it auto-plays (account for a `setInterval`/RAF loop).
+- **Off-screen storage?** If all slides are in the DOM, look for `aria-hidden="true"`, `opacity:0`, or `transform: translateX(100%)` → CSS-driven track. If only one slide node exists, slides are injected/removed by JS (React/Vue).
+- **Force the transition** via the next-arrow / pagination-dot ref, diff, and read the slide-wrapper class change to confirm the transform mechanism. Watch in diffs: `class`, `style` (transform/opacity), `aria-hidden`, `src` (lazy load).
+
+**Sliders (range/price/settings):** snapshot the track. If it's `<input type="range">`, just style the track + thumb pseudo-elements. If it's `<div role="slider">` with `aria-valuemin/now`, it's a custom JS implementation — reproduce the drag math. Find the output node (e.g. a `$500` label), then click the track at a coordinate and diff: a `left: 45%` / `transform: translateX(...)` on the thumb plus the fill `<div>` width updating reveals the mechanics. Watch in diffs: `aria-valuenow`, `style` (left/width/transform), output-span text.
+
+**Drag-and-drop / swipe:** identify both source (`@e3`) and target (`@e8`) refs. Try the high-level `agent-browser drag @e3 @e8` first; for physics-based custom logic (Framer Motion layout groups) drop to discrete pointer events (`mouse down @e3` → `mouse move @e8` → `mouse up`). To capture the **in-flight** state, run `mouse down` WITHOUT releasing, snapshot, and diff for injected classes (`cursor-grabbing`, `opacity-50`, `scale-105`, drop-zone `ring-2`). Record a video for spring/snapback timing. After a successful drop, a final snapshot confirms the DOM mutation (e.g. reordered list) and any API call.
+
+> Reproduce only the interactivity the source actually has. Build the structure and transition mechanism you measured — don't add hover effects, easing, or controls the source doesn't have (ties to the exact-copy rule).
 
 ### 9. Visual Effects
 

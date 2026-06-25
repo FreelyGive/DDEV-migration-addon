@@ -112,7 +112,12 @@ Drupal default `jsonapi`.
 Copy `.env.example` to `.env` and fill in the values:
 
 ```env
-# Base URL — must be the CMS URL, not the public URL
+# Base URL — must be the CMS URL, not the public URL.
+# NOTE: some starters' deploy scripts concatenate this value directly to build
+# OAuth/API paths. If yours does (e.g. a bash push.sh), CANVAS_SITE_URL MUST end
+# with a trailing slash, or you get malformed URLs like
+# "https://<ID>.cms.acquia.siteoauth/token". Starter .env.example files often
+# ship without it — add it as the first deploy step and pre-flight-check for it.
 CANVAS_SITE_URL=https://<ID>.cms.acquia.site
 
 # JSON:API prefix — check admin/config/services/jsonapi
@@ -167,12 +172,53 @@ npm run canvas:upload -- -c component_name
 **Always use `push-retry.cjs` for uploads.** It uses `canvas push` (not the
 deprecated `canvas upload`) and retries until all slot dependencies are resolved.
 
+> **`canvas upload` does NOT register new props — only a completed `canvas push` does.**
+> After adding/removing a `component.yml` prop, `canvas upload` reports "Updated"
+> but the prop schema on the server is **unchanged**, and any page update using
+> the new prop fails with `the <prop> prop is not defined`. The schema only
+> updates when a `canvas push` runs **to completion** — an aborted push (e.g. on
+> a blocked delete) does not register props either, even at ~97% uploaded.
+> Sequence: push to completion → confirm the prop is registered → then update the
+> page. This is exactly why `push-retry.cjs` is preferred.
+
+### Deploy gotchas (when a starter uses a `bash scripts/push.sh` deploy path)
+
+Some starters deploy via a shell script rather than `push-retry.cjs`. If yours
+does, these bite repeatedly:
+
+- **Run it with `bash`, not `sh`, inside DDEV, with `node_modules/.bin` on PATH.**
+  The script is bash (`[[`, `${BASH_SOURCE[0]}`); `npm run …:deploy` may invoke it
+  via `dash` → `Bad substitution`. It also calls bare `canvas`, so the bin dir
+  must be on PATH. And `node_modules` is linux-built in the container — running on
+  the macOS host fails with `Cannot find module @rollup/rollup-darwin-arm64`:
+  ```bash
+  ddev exec 'cd <project> && export PATH="./node_modules/.bin:$PATH" && bash scripts/push.sh'
+  ```
+- **Compiled CSS is silently dropped on a bare `canvas push` → unstyled site.**
+  The deploy script re-uploads `dist/index.css` via the asset-library API, so
+  `canvas build` (which produces `dist/index.css`) is REQUIRED for a styled
+  deploy. Use the full deploy script, not a bare push.
+- **A relative `@import` breaks the browser Tailwind build.** `canvas build` uses
+  the browser Tailwind build, which cannot follow a relative `@import` (e.g. an
+  entry `global.css` importing `./components/global.css`) — it aborts with
+  `The browser build does not support @import`. **Inline the `@theme` tokens +
+  base rules directly into the entry CSS** and drop the relative `@import`. Load
+  web fonts via a `<link>` (e.g. `.storybook/preview-head.html`), not
+  `@import url(...)`, which also breaks the build. Fix this **before the first
+  `canvas build`**, not at deploy time.
+
 ### Image upload
 
 Acquia Source does not serve local `public/images/` files — images must be
 uploaded as Drupal media entities. The file upload endpoint is
 `POST /api/media/image/media_image` (not `/api/file/file`). Only `png`, `gif`,
 `jpg`, `jpeg` are accepted — `.webp` files are auto-converted to jpg via `sips` (macOS) or `ffmpeg` (Linux).
+
+> The media library rejects `.webp` outright (`Only png gif jpg jpeg`). If your
+> starter has no auto-conversion step, convert webp → png/jpg before upload
+> (ImageMagick in the container). **Convert logos and any image with a
+> transparent background to PNG, not JPG** — JPG flattens transparency onto a
+> solid (usually black/white) box.
 
 ```bash
 # Upload all images in a directory
