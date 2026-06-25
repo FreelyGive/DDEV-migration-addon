@@ -1,0 +1,53 @@
+#!/bin/bash
+## Description: Bootstrap Canvas migration permissions (JSON:API write, OAuth client, service user, page revisions) — idempotent
+## Usage: canvas-bootstrap
+## Example: ddev canvas-bootstrap
+
+set -euo pipefail
+
+SCRIPT="/var/www/html/website-to-components/scripts/bootstrap-canvas.php"
+ENV_FILE="/var/www/html/storybook/.env"
+# drush lives at the composer root (web/), and DDEV_PRIMARY_URL is exported so the
+# bootstrap script can emit the public site URL into .env.
+DRUSH="/var/www/html/web/vendor/bin/drush"
+
+echo "==> Bootstrapping Canvas migration permissions (idempotent)..."
+OUT="$(cd /var/www/html/web && "$DRUSH" php:script "$SCRIPT")"
+echo "$OUT" | grep '^\[bootstrap\]' || true
+
+RESULT="$(echo "$OUT" | sed -n 's/^\[bootstrap-result\] //p' | tail -n1)"
+if [ -z "$RESULT" ]; then
+  echo "✗ Bootstrap produced no result line. See output above." >&2
+  exit 1
+fi
+
+CLIENT_ID="$(echo "$RESULT"     | sed -n 's/.*"client_id":"\([^"]*\)".*/\1/p')"
+CLIENT_SECRET="$(echo "$RESULT" | sed -n 's/.*"client_secret":"\([^"]*\)".*/\1/p')"
+SITE_URL="$(echo "$RESULT"      | sed -n 's/.*"site_url":"\([^"]*\)".*/\1/p')"
+JSONAPI_PREFIX="$(echo "$RESULT"| sed -n 's/.*"jsonapi_prefix":"\([^"]*\)".*/\1/p')"
+
+mkdir -p "$(dirname "$ENV_FILE")"
+touch "$ENV_FILE"
+
+# Upsert one key without clobbering unrelated lines. The sentinel value
+# "__keep__" means: leave whatever is already in .env untouched (reuse path).
+upsert_env() {
+  local key="$1" val="$2"
+  if [ "$val" = "__keep__" ] || [ -z "$val" ]; then
+    echo "  (keeping existing ${key})"
+    return 0
+  fi
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    grep -v "^${key}=" "$ENV_FILE" > "${ENV_FILE}.tmp"
+    mv "${ENV_FILE}.tmp" "$ENV_FILE"
+  fi
+  echo "${key}=${val}" >> "$ENV_FILE"
+}
+
+upsert_env "CANVAS_LOCAL_SITE_URL"      "$SITE_URL"
+upsert_env "CANVAS_LOCAL_CLIENT_ID"     "$CLIENT_ID"
+upsert_env "CANVAS_LOCAL_CLIENT_SECRET" "$CLIENT_SECRET"
+upsert_env "CANVAS_LOCAL_JSONAPI_PREFIX" "$JSONAPI_PREFIX"
+
+echo "✓ Updated CANVAS_LOCAL_* in storybook/.env (kept __keep__ values)"
+echo "✓ Canvas migration bootstrap complete."
