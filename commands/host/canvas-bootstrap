@@ -35,13 +35,25 @@ JSONAPI_PREFIX="$(echo "$RESULT"| sed -n 's/.*"jsonapi_prefix":"\([^"]*\)".*/\1/
 mkdir -p "$(dirname "$ENV_FILE")"
 touch "$ENV_FILE"
 
+# Track whether any "keep" sentinel referred to a key that doesn't actually
+# exist in .env yet — that means we'd report success while leaving a required
+# value unset.
+MISSING_KEPT=""
+
 # Upsert one key without clobbering unrelated lines. The sentinel value
 # "__keep__" (and empty) means: leave whatever is already in .env untouched
 # (reuse path — a pre-existing consumer's hashed secret cannot be recovered).
+# But "keep" only makes sense if the key is already present; if it is absent,
+# record it so the caller can fail loudly instead of claiming success.
 upsert_env() {
   local key="$1" val="$2"
   if [ "$val" = "__keep__" ] || [ -z "$val" ]; then
-    echo "  (keeping existing ${key})"
+    if grep -q "^${key}=" "$ENV_FILE"; then
+      echo "  (keeping existing ${key})"
+    else
+      echo "  ⚠ ${key} is unset and the bootstrap returned no value to write." >&2
+      MISSING_KEPT="${MISSING_KEPT} ${key}"
+    fi
     return 0
   fi
   if grep -q "^${key}=" "$ENV_FILE"; then
@@ -55,6 +67,14 @@ upsert_env "CANVAS_LOCAL_SITE_URL"       "$SITE_URL"
 upsert_env "CANVAS_LOCAL_CLIENT_ID"      "$CLIENT_ID"
 upsert_env "CANVAS_LOCAL_CLIENT_SECRET"  "$CLIENT_SECRET"
 upsert_env "CANVAS_LOCAL_JSONAPI_PREFIX" "$JSONAPI_PREFIX"
+
+if [ -n "$MISSING_KEPT" ]; then
+  echo "✗ These keys are still unset in storybook/.env:${MISSING_KEPT}" >&2
+  echo "  The bootstrap reused an existing consumer whose secret cannot be recovered, but" >&2
+  echo "  no value was present to keep. Delete the 'Canvas AI'/'Canvas Migration' consumer at" >&2
+  echo "  /admin/config/services/consumer and re-run 'ddev canvas-bootstrap' to mint a fresh secret." >&2
+  exit 1
+fi
 
 echo "✓ Updated CANVAS_LOCAL_* in storybook/.env (kept __keep__ values)"
 echo "✓ Canvas migration bootstrap complete."

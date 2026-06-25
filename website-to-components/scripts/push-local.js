@@ -1,11 +1,21 @@
 #!/usr/bin/env node
 import { readFileSync, existsSync } from "fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sitePaths } from "../lib/paths.js";
 import { makeClient } from "../lib/jsonapi.js";
 import { normalizeMenus, withUnbuiltLinksDisabled } from "../lib/menu.js";
 import { pushToLocal } from "../lib/push-local.js";
 
-try { (await import("dotenv")).default.config({ path: "../.env" }); } catch {}
+// Resolve paths relative to this script, not the caller's CWD. The repo layout
+// is <root>/website-to-components/scripts/push-local.js with <root>/storybook
+// alongside, so the project root is two levels up from here.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(__dirname, "..", "..");
+const STORYBOOK_DIR = resolve(PROJECT_ROOT, "storybook");
+
+// CANVAS_LOCAL_* live in storybook/.env (written by `ddev canvas-bootstrap`).
+try { (await import("dotenv")).default.config({ path: resolve(STORYBOOK_DIR, ".env") }); } catch {}
 
 const url = process.argv[2] || process.env.TARGET_URL;
 if (!url) { console.error("Usage: node scripts/push-local.js <url>"); process.exit(1); }
@@ -38,7 +48,7 @@ const client = makeClient({
 const { execSync } = await import("node:child_process");
 const result = await pushToLocal({
   env, menus, pages, client,
-  runCanvasPush: async () => execSync("cd ../storybook && npm run canvas:push:local", { stdio: "inherit" }),
+  runCanvasPush: async () => execSync("npm run canvas:push:local", { cwd: STORYBOOK_DIR, stdio: "inherit" }),
   log: (m) => console.log(m),
 });
 

@@ -76,6 +76,13 @@ await generateBrandKit(url);
 const meta = JSON.parse(readFileSync(sitePaths(url).metaPath, "utf8"));
 meta.scope = scope;
 const origin = new URL(url).origin;
+
+// discoverSitemapMenus shells out to agent-browser (a full open/snapshot/eval
+// pass). It is needed both for menu-reachable discovery and for menu extraction
+// below, so memoize the promise and reuse it rather than running the browser twice.
+let sitemapMenusPromise = null;
+const getSitemapMenus = () => (sitemapMenusPromise ??= discoverSitemapMenus(url));
+
 const discovery = await resolveDiscovery({
   scope,
   origin,
@@ -87,7 +94,7 @@ const discovery = await resolveDiscovery({
     } catch { return null; }
   },
   listMenuPages: async () => {
-    const sm = await discoverSitemapMenus(url);
+    const sm = await getSitemapMenus();
     return (sm.pages || []).map(pg => pg.url);
   },
   log: (m) => console.log(m),
@@ -100,7 +107,7 @@ console.log(`\n==> Discovery (${discovery.source}): ${discovery.pages.length} pa
 
 // Menus come from nav extraction (not the sitemap, which has no hierarchy).
 try {
-  const sm = await discoverSitemapMenus(url);
+  const sm = await getSitemapMenus();
   const rawMenus = sm.menusRaw || { main: (sm.pages || []).map(p => ({ label: p.label, url: p.url })), footer: [], sidebar: [] };
   meta.menus = normalizeMenus(rawMenus, origin);
 } catch (e) {
