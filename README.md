@@ -56,3 +56,19 @@ ddev claude
 ```
 
 The migration pipeline runs inside the DDEV web container. Results are written to `website-to-components/output/`.
+
+## Permission bootstrap
+
+`ddev clone` runs `ddev canvas-bootstrap` automatically before discovery. It is
+idempotent and:
+
+- enables JSON:API read/write,
+- creates the `Canvas Migration` OAuth consumer (Client Credentials, scopes
+  `canvas:asset_library canvas:js_component member`),
+- assigns the `canvas_migration` service user to that consumer (without this the
+  Canvas REST API returns 401),
+- enables revisions on the `page` content type (so re-runs upsert safely),
+- writes `CANVAS_LOCAL_SITE_URL` / `CANVAS_LOCAL_CLIENT_ID` /
+  `CANVAS_LOCAL_CLIENT_SECRET` into `storybook/.env`.
+
+Run it on its own at any time with `ddev canvas-bootstrap`.

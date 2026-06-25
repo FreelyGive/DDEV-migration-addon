@@ -14,5 +14,15 @@ fi
 
 shift  # remaining args passed through to run.js
 
+# Idempotent permission bootstrap (JSON:API write, OAuth client, service user,
+# page revisions, storybook/.env). Non-fatal: a warning here should not block
+# screenshots/discovery, only the later auto-push.
+if command -v ddev-canvas-bootstrap >/dev/null 2>&1 || [ -x "/var/www/html/.ddev/commands/web/canvas-bootstrap" ]; then
+  echo "==> Preflight: Canvas permission bootstrap"
+  bash /var/www/html/.ddev/commands/web/canvas-bootstrap || echo "⚠ Bootstrap reported a problem; continuing. Auto-push may be skipped."
+else
+  echo "⚠ canvas-bootstrap command not found; skipping permission bootstrap."
+fi
+
 cd /var/www/html/website-to-components
 node scripts/run.js "$URL" "$@"
