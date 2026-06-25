@@ -508,6 +508,10 @@ node website-to-components/scripts/run.js <url> --no-clean
 
 Use this when you need existing `sections/` images still available after the run.
 
+**Screenshot fidelity — two known traps the capture job already handles (don't undo them):**
+- **Never force `* { opacity: 1 !important }` or `* { filter: none !important }`** to defeat entrance animations. It forces intentional overlay/scrim/tint layers (hero darkening, hover overlays, low-alpha image tints) fully opaque — which renders as a **grey box over the whole element**, most visibly on rounded-corner image containers. The capture jobs (`01-screenshot.js` / `01b`) reset opacity/transform/filter **only on elements carrying an animation/entrance class**, leaving designed overlays intact. If you see grey-boxed images in a screenshot, this scoping was bypassed.
+- **Video players capture blank** unless the readiness gate waits for more than `<img>`. Posters live on `<video poster>`, CSS `background-image`, facade thumbnails, or async `<iframe>` embeds — none are `<img>`. The capture jobs force-load lazy posters, gate on `<video>.readyState` + poster decode, and settle 3s for iframe embeds. If a section screenshot shows an empty/black player, extend that gate rather than substituting a still.
+
 ---
 
 ### Step 3 — Agent vision analysis: section detection + component identification (parallel subagents)

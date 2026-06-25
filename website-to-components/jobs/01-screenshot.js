@@ -83,26 +83,31 @@ export async function run(url) {
     execSync("agent-browser wait 3000", { stdio: "inherit" });
   }
 
-  // Lock animation end-states before scrolling back to top
-  console.log("Locking animation end-states...");
+  // Lock animation end-states before scrolling back to top.
+  //
+  // IMPORTANT: do NOT apply a blanket `* { opacity: 1 !important }` /
+  // `* { filter: none !important }`. That forces intentional overlay/scrim/tint
+  // layers (hero darkening gradients, hover overlays, low-alpha image tints) to
+  // full opacity, which renders as a grey box over the whole element — most
+  // visible on rounded-corner image containers. Reset entrance-animation state
+  // ONLY on elements that actually carry an animation/entrance class, leaving
+  // designed overlays and image filters intact.
+  console.log("Locking animation end-states (scoped to entrance animations)...");
   browserEval(`
-    const style = document.createElement('style');
-    style.id = '__anim_lock_style';
-    style.innerHTML = [
-      '*:not(.grayscale-item) { filter: none !important; }',
-      '* { opacity: 1 !important; }'
-    ].join(' ');
-    document.head.appendChild(style);
-    document.querySelectorAll('[class*="anima"]').forEach(el => {
-      el.style.removeProperty('opacity');
-      el.style.removeProperty('filter');
+    const ANIM_RE = /anima|animated|entrance|fade-?in|reveal|aos|wow|scroll-?trigger|inview|in-view/i;
+    document.querySelectorAll('[class*="anima"], [class*="fade"], [class*="reveal"], [class*="aos"], [class*="inview"], [class*="in-view"], [data-aos]').forEach(el => {
+      const cs = getComputedStyle(el);
+      // Only neutralise opacity if it's hidden by a not-yet-fired entrance anim.
+      if (parseFloat(cs.opacity) < 1) el.style.setProperty('opacity', '1', 'important');
       el.style.removeProperty('transform');
-      el.classList.forEach(c => {
-        if (c.includes('anima') || c.includes('animated') || c.includes('entrance')) el.classList.remove(c);
-      });
+      el.style.removeProperty('filter');
+      el.classList.forEach(c => { if (ANIM_RE.test(c)) el.classList.remove(c); });
+      el.removeAttribute('data-aos');
     });
+    // Stub IntersectionObserver so any further scroll-triggered reveals fire
+    // immediately for the rest of the capture.
     window.IntersectionObserver = function(cb, opts) {
-      return { observe: function(){}, unobserve: function(){}, disconnect: function(){} };
+      return { observe: function(){}, unobserve: function(){}, disconnect: function(){}, takeRecords: function(){ return []; } };
     };
     'locked';
   `);
@@ -111,12 +116,53 @@ export async function run(url) {
   // Scroll back to top so sticky nav is visible
   browserEval("window.scrollTo(0, 0)");
 
-  // Wait for all images (including lazy-loaded) to be fully decoded and displayed.
-  console.log("Waiting for all images to load...");
+  // Force-load video posters and lazy media BEFORE the readiness gate.
+  // Video players capture blank when their poster/thumbnail hasn't painted:
+  //  - <video poster="..."> posters aren't <img>, so the img-only gate ignores them
+  //  - facade players (lit-youtube, lite-vimeo, "click to play") render the
+  //    thumbnail as a CSS background-image or a lazily-injected <img>
+  //  - real <iframe> embeds (YouTube/Vimeo) paint asynchronously after load
+  // Eagerly promote lazy attributes and decode posters so they're visible.
+  console.log("Force-loading video posters and lazy media...");
+  browserEval(`
+    // Promote common lazy attributes to real src so the browser fetches them.
+    document.querySelectorAll('img[loading="lazy"], img[data-src], video[data-src], source[data-src]').forEach(el => {
+      el.loading = 'eager';
+      if (el.dataset && el.dataset.src && !el.src) el.src = el.dataset.src;
+      if (el.dataset && el.dataset.poster && el.poster === '') el.poster = el.dataset.poster;
+    });
+    // Kick <video> elements to load their poster/first frame.
+    document.querySelectorAll('video').forEach(v => { try { v.preload = 'auto'; v.load(); } catch (e) {} });
+    // Decode any <video poster> as an Image so it's in cache when we paint.
+    [...document.querySelectorAll('video[poster]')].forEach(v => { const im = new Image(); im.src = v.poster; });
+    'kicked';
+  `);
+
+  // Wait for all images AND video posters to be decoded and displayed.
+  console.log("Waiting for all images and video posters to load...");
   execSync(
     "agent-browser wait --fn \"[...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0)\"",
     { stdio: "inherit" },
   );
+  // <video> readiness (HAVE_CURRENT_DATA+) and poster image decode — these are
+  // not <img> nodes, so they need their own gate. Tolerant: posters that fail to
+  // decode must not hang the run, so we bound the wait.
+  try {
+    execSync(
+      "agent-browser wait --fn \"[...document.querySelectorAll('video')].every(v => v.readyState >= 2 || !v.poster || (() => { const i = new Image(); i.src = v.poster; return i.complete; })())\" --timeout 8000",
+      { stdio: "inherit" },
+    );
+  } catch {
+    console.log("Video readiness gate timed out — continuing (posters may be slow).");
+  }
+  // Give real <iframe> video embeds a fixed settle to paint their thumbnail.
+  const hasIframeVideo = browserEval(
+    "!!document.querySelector('iframe[src*=\"youtube\"], iframe[src*=\"vimeo\"], iframe[src*=\"player\"], iframe[src*=\"embed\"]')",
+  );
+  if (hasIframeVideo === "true") {
+    console.log("Iframe video embed present — settling 3s for it to paint...");
+    execSync("agent-browser wait 3000", { stdio: "inherit" });
+  }
 
   console.log("Taking full-page screenshot...");
   execSync(`agent-browser screenshot "${screenshotPath}" --full`, { stdio: "inherit" });

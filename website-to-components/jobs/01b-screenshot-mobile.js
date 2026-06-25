@@ -66,13 +66,23 @@ export async function run(url) {
     execSync("agent-browser wait 800", { stdio: "pipe" });
   }
 
-  // Lock animation end-states
+  // Lock animation end-states — scoped to entrance animations only.
+  // Do NOT use a blanket `* { opacity:1 !important; filter:none !important }`:
+  // it forces designed overlay/scrim/tint layers fully opaque (grey box over
+  // rounded-corner images) and strips intended image filters. Reset only the
+  // elements that carry an animation/entrance class.
   browserEval(`
-    const style = document.createElement('style');
-    style.innerHTML = '* { opacity: 1 !important; filter: none !important; }';
-    document.head.appendChild(style);
+    const ANIM_RE = /anima|animated|entrance|fade-?in|reveal|aos|wow|scroll-?trigger|inview|in-view/i;
+    document.querySelectorAll('[class*="anima"], [class*="fade"], [class*="reveal"], [class*="aos"], [class*="inview"], [class*="in-view"], [data-aos]').forEach(el => {
+      const cs = getComputedStyle(el);
+      if (parseFloat(cs.opacity) < 1) el.style.setProperty('opacity', '1', 'important');
+      el.style.removeProperty('transform');
+      el.style.removeProperty('filter');
+      el.classList.forEach(c => { if (ANIM_RE.test(c)) el.classList.remove(c); });
+      el.removeAttribute('data-aos');
+    });
     window.IntersectionObserver = function(cb) {
-      return { observe: function(){}, unobserve: function(){}, disconnect: function(){} };
+      return { observe: function(){}, unobserve: function(){}, disconnect: function(){}, takeRecords: function(){ return []; } };
     };
     'locked';
   `);
@@ -81,21 +91,44 @@ export async function run(url) {
   browserEval("window.scrollTo(0, 0)");
   execSync("agent-browser wait 1000", { stdio: "pipe" });
 
-  // Wait for all images (including lazy-loaded thumbnails) to finish loading
-  console.log("Waiting for all images to load...");
+  // Force-load video posters / lazy media before waiting (posters aren't <img>).
   browserEval(`
-    await Promise.allSettled(
-      [...document.querySelectorAll('img')].map(img =>
+    document.querySelectorAll('img[loading="lazy"], img[data-src], video[data-src], source[data-src]').forEach(el => {
+      el.loading = 'eager';
+      if (el.dataset && el.dataset.src && !el.src) el.src = el.dataset.src;
+      if (el.dataset && el.dataset.poster && el.poster === '') el.poster = el.dataset.poster;
+    });
+    document.querySelectorAll('video').forEach(v => { try { v.preload = 'auto'; v.load(); } catch (e) {} });
+    [...document.querySelectorAll('video[poster]')].forEach(v => { const im = new Image(); im.src = v.poster; });
+    'kicked';
+  `);
+
+  // Wait for all images, video posters, and <video> readiness.
+  console.log("Waiting for all images and video posters to load...");
+  browserEval(`
+    const posterReady = (v) => { if (!v.poster) return true; const i = new Image(); i.src = v.poster; return i.decode().then(() => true).catch(() => true); };
+    await Promise.allSettled([
+      ...[...document.querySelectorAll('img')].map(img =>
         img.complete ? Promise.resolve() : new Promise(resolve => {
           img.addEventListener('load', resolve, { once: true });
           img.addEventListener('error', resolve, { once: true });
           setTimeout(resolve, 8000);
         })
-      )
-    );
-    'images ready';
+      ),
+      ...[...document.querySelectorAll('video')].map(v =>
+        v.readyState >= 2 ? posterReady(v) : new Promise(resolve => {
+          v.addEventListener('loadeddata', resolve, { once: true });
+          setTimeout(resolve, 8000);
+        })
+      ),
+    ]);
+    'media ready';
   `);
-  execSync("agent-browser wait 1000", { stdio: "pipe" });
+  // Settle for iframe video embeds (YouTube/Vimeo) to paint their thumbnail.
+  const hasIframeVideo = browserEval(
+    "!!document.querySelector('iframe[src*=\"youtube\"], iframe[src*=\"vimeo\"], iframe[src*=\"player\"], iframe[src*=\"embed\"]')",
+  );
+  execSync(`agent-browser wait ${hasIframeVideo === "true" ? 3000 : 1000}`, { stdio: "pipe" });
 
   console.log("Taking mobile full-page screenshot...");
   execSync(`agent-browser screenshot "${mobileScreenshotPath}" --full`, { stdio: "inherit" });
