@@ -57,7 +57,7 @@ For each new page URL, run the full `website-to-components` pipeline:
 
 **Output path:** `output/<site>/<page-slug>/` — one subdirectory per page.
 
-**Shared components:** The Navbar, Footer, and any component that appears on multiple pages must be built once. Before building a component, check `canvas/src/components/` — if it exists, reuse it.
+**Shared components:** The Navbar, Footer, and any component that appears on multiple pages must be built once. Before building a component, check `storybook/src/components/` — if it exists, reuse it.
 
 ### Step 9 — Wire inter-page links
 
