@@ -14,7 +14,10 @@
 - Branch: `feature/migration-flow`. Commit after every task. This branch has no upstream; do not push.
 - Tests run with: `cd website-to-components && node --test test/*.test.mjs` — must stay green (31 tests passing today; this plan adds more).
 - Bootstrap MUST be idempotent: every step is check-then-act, safe to re-run, no duplicate OAuth clients / menus / revisions flips.
-- OAuth scope string is exactly `canvas:asset_library canvas:js_component member` (verbatim, matches `lib/jsonapi.js:5` `FULL_SCOPE`).
+- **LOCAL OAuth scope string is exactly `canvas:asset_library canvas:js_component`** (two scopes, NO `member`). Verified against the live weber2 site: a token request including `member` returns `invalid_scope` because `member` is not one of the 12 local `oauth2_scope` entities — it is a remote/Acquia content-OAuth scope (see `.env` hint `CONTENT_OAUTH_SCOPE`). The current `lib/jsonapi.js:5` `FULL_SCOPE` wrongly includes `member`; Task A0 fixes that latent bug. Do NOT use `member` anywhere in the local path.
+- **drush invocation on these projects is `ddev exec -d /var/www/html/web vendor/bin/drush ...`** — the docroot is `web/web` and the composer root (where drush lives) is `web/`. Plain `ddev drush` FAILS ("drush is not available"). Use the `-d /var/www/html/web` form in every command and in the `canvas-bootstrap` command (which runs inside the web container, so it uses `cd /var/www/html/web && vendor/bin/drush ...`).
+- **Local validates OAuth scopes at token-request time against `oauth2_scope` entities; consumers store an EMPTY `scopes` field** (verified: the working `canvas-ai-eee` consumer has `scopes=[]` yet issues valid tokens). Therefore the bootstrap must NOT set or check consumer `scopes`; a consumer is "usable" based on having a Client-Credentials grant + an assigned user, confirmed by a live token probe.
+- **Live weber2 baseline (verification target):** `page` node type already has `new_revision: true` (revisions step is a no-op there — still keep it for fresh sites); `jsonapi.settings.read_only` is currently `true` (the real thing A1 must flip to false); working consumer `Canvas AI` (`canvas-ai-eee`, uid=1) already exists, so A2 takes the REUSE path.
 - `.env` lives at the **storybook** project's `.env` (`storybook/.env`), and uses keys `CANVAS_LOCAL_SITE_URL`, `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET` (verbatim, matches `lib/bootstrap-check.js:1`). **`CANVAS_LOCAL_SITE_URL` is the PUBLIC `.ddev.site` URL** (e.g. `https://weber2.ddev.site`) — this is what the working `canvas:push:local` script in `storybook/package.json` passes to `canvas push --site-url`. Do NOT write the container-internal `http://web/web` URL; that breaks the existing push. There is also a `CANVAS_LOCAL_JSONAPI_PREFIX` key (value `jsonapi`) already present in working `.env` files — preserve it; bootstrap must not delete or change it.
 - **Consumer idempotency = reuse-any-valid-consumer, not own-a-named-one.** Working sites already have a functional consumer (e.g. `client_id=canvas-ai-eee`). Bootstrap must (1) verify whether a usable consumer already exists — assigned user + Client Credentials grant + the required scopes — and reuse it if so (emit its existing client_id/secret), and only (2) create a dedicated `canvas_migration` consumer when no usable one exists. Never overwrite or duplicate a working consumer.
 - Whole-site scope: **menus always come from nav extraction; the page set comes from the sitemap** (design Subsystem 2). Do not derive menus from the sitemap.
@@ -41,6 +44,91 @@
 ---
 
 ## Gap A — Active Permission Bootstrap
+
+### Task A0: Fix the `member` latent scope bug for the local write path (TDD)
+
+**Files:**
+- Modify: `website-to-components/lib/jsonapi.js:5`
+- Modify: `website-to-components/lib/bootstrap-check.js:10` (and the message on line 12)
+- Test: `website-to-components/test/jsonapi.test.mjs` (update the scope assertion), `website-to-components/test/bootstrap-check.test.mjs` (probe scope)
+
+**Interfaces:**
+- Produces: `FULL_SCOPE === "canvas:asset_library canvas:js_component"` (two scopes, no `member`). `bootstrap-check.js` probes with the same two-scope string. All callers unchanged in shape — only the scope value changes.
+
+**Why:** Verified against live weber2 — a token request with `member` returns `invalid_scope`; `member` is a remote/Acquia content scope, not a local Canvas `oauth2_scope`. The local auto-push path writes through `lib/jsonapi.js`, so leaving `member` in would make the first real local write fail. This is a one-value fix with test updates.
+
+- [ ] **Step 1: Update the failing test first (RED)**
+
+In `website-to-components/test/jsonapi.test.mjs`, find the assertion (around line 75):
+
+```javascript
+  assert.equal(tokenScope, "canvas:asset_library canvas:js_component member");
+```
+Change it to:
+```javascript
+  assert.equal(tokenScope, "canvas:asset_library canvas:js_component");
+```
+
+And around line 31, the explicit-scope call test uses `client.getToken("member")` to check token caching — that is testing the *caching mechanism* with an arbitrary scope string, not asserting `member` is valid. Change the literal to a real scope so the test reflects reality:
+```javascript
+  assert.equal(await client.getToken("canvas:js_component"), "tok123");
+```
+(If the surrounding stub keys on the exact scope string, update that stub key to match — keep the test internally consistent.)
+
+In `website-to-components/test/bootstrap-check.test.mjs`, if any test asserts the probe scope is `"member"`, change the expected probe scope to `"canvas:asset_library canvas:js_component"`.
+
+- [ ] **Step 2: Run tests to verify they fail (RED)**
+
+Run: `cd website-to-components && node --test test/jsonapi.test.mjs test/bootstrap-check.test.mjs`
+Expected: FAIL on the changed assertions (old code still emits `member`).
+
+- [ ] **Step 3: Fix the implementation (GREEN)**
+
+In `website-to-components/lib/jsonapi.js` line 5:
+```javascript
+const FULL_SCOPE = "canvas:asset_library canvas:js_component member";
+```
+→
+```javascript
+// Local Canvas write scope. NOTE: `member` is a remote/Acquia content-OAuth
+// scope and is NOT a valid local oauth2_scope — including it makes local token
+// requests fail with invalid_scope. Keep this to the two local Canvas scopes.
+const FULL_SCOPE = "canvas:asset_library canvas:js_component";
+```
+
+In `website-to-components/lib/bootstrap-check.js` line 10:
+```javascript
+  const token = await probeToken("member");
+```
+→
+```javascript
+  const token = await probeToken("canvas:asset_library canvas:js_component");
+```
+And in the line-12 message, replace `scopes canvas:asset_library + canvas:js_component + member` with `scopes canvas:asset_library + canvas:js_component`.
+
+- [ ] **Step 4: Run tests to verify they pass (GREEN)**
+
+Run: `cd website-to-components && node --test test/*.test.mjs`
+Expected: PASS — all tests (the two changed files plus no regressions elsewhere).
+
+- [ ] **Step 5: Live confirmation against weber2**
+
+```bash
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+CID=$(grep '^CANVAS_LOCAL_CLIENT_ID=' storybook/.env | cut -d= -f2)
+CSECRET=$(grep '^CANVAS_LOCAL_CLIENT_SECRET=' storybook/.env | cut -d= -f2)
+ddev exec curl -s -X POST https://weber2.ddev.site/oauth/token -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=$CID&client_secret=$CSECRET&scope=canvas:asset_library canvas:js_component" | sed -n 's/.*\("access_token"\).*/\1 present/p'
+```
+Expected: prints `"access_token" present`. (Confirms the two-scope string the code now uses actually authenticates.)
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add website-to-components/lib/jsonapi.js website-to-components/lib/bootstrap-check.js website-to-components/test/jsonapi.test.mjs website-to-components/test/bootstrap-check.test.mjs
+git commit -m "fix(migration): local OAuth scope drops invalid 'member' (remote-only scope)"
+```
+
+---
 
 ### Task A1: Bootstrap PHP script — JSON:API write + page revisions
 
@@ -98,17 +186,23 @@ else {
 }
 ```
 
-- [ ] **Step 2: Run it against local DDEV-Canvas to verify**
+- [ ] **Step 2: Run it against weber2 to verify**
 
-Run (from the migration project root that has DDEV-Canvas):
 ```bash
-ddev drush php:script website-to-components/scripts/bootstrap-canvas.php
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+cp /Users/nickopris/Work/fg/projects/ddev-addons/DDEV-migration-addon/website-to-components/scripts/bootstrap-canvas.php web/bootstrap-canvas.php
+ddev exec -d /var/www/html/web vendor/bin/drush php:script bootstrap-canvas.php
 ```
-Expected stdout includes `[bootstrap] JSON:API set to read/write.` (or "already read/write") and a `page` revisions line. Confirm at `/admin/config/services/jsonapi` that "Accept all JSON:API create, read, update, and delete operations" is selected.
+Expected stdout (live weber2 baseline: `read_only=true`, page revisions already on): `[bootstrap] JSON:API set to read/write.` AND `[bootstrap] Page revisions already enabled.`. Confirm at `/admin/config/services/jsonapi` that "Accept all JSON:API create, read, update, and delete operations" is now selected.
 
 - [ ] **Step 3: Run it again to verify idempotency**
 
-Run the same command. Expected: both lines now say "already" (no second mutation, no error).
+```bash
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+ddev exec -d /var/www/html/web vendor/bin/drush php:script bootstrap-canvas.php
+rm -f web/bootstrap-canvas.php
+```
+Expected: now `[bootstrap] JSON:API already read/write.` AND `[bootstrap] Page revisions already enabled.` (no second mutation, no error). `rm` cleans the test copy.
 
 - [ ] **Step 4: Commit**
 
@@ -126,7 +220,7 @@ git commit -m "feat(migration): bootstrap script — JSON:API write + page revis
 
 **Interfaces:**
 - Consumes: the `consumers` + `simple_oauth` modules (ship with Canvas/Drupal recipe). Assumes a signing key already exists (Canvas install provides it).
-- Produces: when run, guarantees a usable Client-Credentials consumer exists with scopes `canvas:asset_library canvas:js_component member` **and a Drupal user assigned**, REUSING any existing usable consumer rather than duplicating it. Prints a final JSON line `[bootstrap-result] {"client_id":"...","client_secret":"<value-or-__keep__>","site_url":"...","jsonapi_prefix":"jsonapi"}` consumed by Task A3.
+- Produces: when run, guarantees a usable Client-Credentials consumer exists **with a Drupal user assigned** (scopes are token-time, not consumer-stored — see Global Constraints), REUSING any existing usable consumer rather than duplicating it. Prints a final JSON line `[bootstrap-result] {"client_id":"...","client_secret":"<value-or-__keep__>","site_url":"...","jsonapi_prefix":"jsonapi"}` consumed by Task A3.
 - **Secret-recovery constraint (discovered against the live site):** Drupal hashes consumer secrets on save, so the plaintext secret of a *pre-existing* consumer cannot be read back. Therefore: when reusing an existing consumer, emit `"client_secret":"__keep__"` to signal "do not change the secret already in `.env`". Only when the script *creates or resets* a consumer does it know the plaintext and emit it.
 
 - [ ] **Step 1: Append consumer-reuse + service-user logic**
@@ -134,24 +228,25 @@ git commit -m "feat(migration): bootstrap script — JSON:API write + page revis
 First, confirm the consumer entity field names on the live site (do this before writing — the array keys below must match):
 
 ```bash
-ddev drush ev '$f=\Drupal::entityTypeManager()->getStorage("consumer")->create([])->getFieldDefinitions(); echo implode(",", array_keys($f));'
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+ddev exec -d /var/www/html/web vendor/bin/drush ev '$f=\Drupal::entityTypeManager()->getStorage("consumer")->create([])->getFieldDefinitions(); echo implode(",", array_keys($f));'
 ```
-Expected to include: `client_id`, `secret`, `grant_types`, `scopes`, `user_id`. If a name differs on this `consumers` version, use the live name throughout.
+Expected (verified live): `id,uuid,langcode,owner_id,client_id,label,description,image,third_party,is_default,status,default_langcode,secret,grant_types,confidential,scopes,redirect,access_token_expiration,refresh_token_expiration,user_id,pkce,...`. The keys used below (`client_id`, `secret`, `grant_types`, `user_id`, `label`) are confirmed present.
 
 Append to `website-to-components/scripts/bootstrap-canvas.php` (no closing `?>`):
 
 ```php
 
-// Required scope machine names. Adjust if the live scope entity ids differ
-// (verify: ddev drush ev '...oauth2_token... ' or the consumer "scopes" field
-// allowed values). These three match lib/jsonapi.js FULL_SCOPE.
-$required_scopes = ['canvas:asset_library', 'canvas:js_component', 'member'];
+// Local Canvas scopes (NO `member` — that is remote-only; see Task A0). These
+// are validated at TOKEN-REQUEST time against oauth2_scope entities, NOT stored
+// on the consumer (verified live: the working consumer has scopes=[]). So the
+// bootstrap neither sets nor checks consumer scopes — it only needs a consumer
+// with a Client-Credentials grant and an assigned user.
+$local_scopes = ['canvas:asset_library', 'canvas:js_component'];
 
-// The public site URL the storybook push uses (CANVAS_LOCAL_SITE_URL). Derive
-// from the request base; for DDEV this is https://<project>.ddev.site. We read
-// it from the DDEV_PRIMARY_URL env if present, else fall back to a global the
-// installer can set. NEVER emit the container-internal http://web/web here —
-// the storybook `canvas push --site-url` needs the public URL.
+// The public site URL the storybook push uses (CANVAS_LOCAL_SITE_URL): for DDEV
+// this is https://<project>.ddev.site. NEVER emit the container-internal
+// http://web/web — the storybook `canvas push --site-url` needs the public URL.
 $site_url = getenv('DDEV_PRIMARY_URL') ?: getenv('CANVAS_LOCAL_SITE_URL') ?: '';
 if ($site_url === '') {
   bootstrap_log('WARNING: could not determine public site URL; emitting __keep__ so .env is left unchanged.');
@@ -162,20 +257,14 @@ $consumer_storage = \Drupal::entityTypeManager()->getStorage('consumer');
 $user_storage = \Drupal::entityTypeManager()->getStorage('user');
 
 /**
- * A consumer is "usable" if it has Client Credentials, all required scopes,
- * and a user assigned. Returns TRUE/FALSE.
+ * A consumer is "usable" if it has the Client-Credentials grant AND an assigned
+ * user. Scopes are intentionally NOT checked here (they live on oauth2_scope
+ * entities and are requested at token time, not stored on the consumer).
  */
-$is_usable = function ($consumer) use ($required_scopes) {
+$is_usable = function ($consumer) {
   $grants = array_column($consumer->get('grant_types')->getValue(), 'value');
   if (!in_array('client_credentials', $grants, TRUE)) {
     return FALSE;
-  }
-  $scopes = array_column($consumer->get('scopes')->getValue(), 'target_id') ?:
-            array_column($consumer->get('scopes')->getValue(), 'value');
-  foreach ($required_scopes as $needed) {
-    if (!in_array($needed, $scopes, TRUE)) {
-      return FALSE;
-    }
   }
   $uid = $consumer->get('user_id')->target_id;
   return !empty($uid);
@@ -219,12 +308,14 @@ else {
   $owned = $consumer_storage->loadByProperties(['label' => 'Canvas Migration']);
   $consumer = $owned ? reset($owned) : NULL;
   if (!$consumer) {
+    // Do NOT set `scopes` — local validates scopes at token time against
+    // oauth2_scope entities; the working consumer stores scopes=[]. Do NOT set
+    // is_default — that would hijack the site default consumer.
     $consumer = $consumer_storage->create([
       'label' => 'Canvas Migration',
       'client_id' => 'canvas_migration',
       'secret' => $secret,
       'grant_types' => ['client_credentials'],
-      'scopes' => $required_scopes,
       'user_id' => $service_user->id(),
     ]);
     $consumer->save();
@@ -232,11 +323,10 @@ else {
   }
   else {
     $consumer->set('grant_types', ['client_credentials']);
-    $consumer->set('scopes', $required_scopes);
     $consumer->set('user_id', $service_user->id());
     $consumer->set('secret', $secret);
     $consumer->save();
-    bootstrap_log('Reset OAuth consumer "Canvas Migration" (scopes + user + secret).');
+    bootstrap_log('Reset OAuth consumer "Canvas Migration" (grant + user + secret).');
   }
 
   fwrite(STDOUT, '[bootstrap-result] ' . json_encode([
@@ -248,17 +338,17 @@ else {
 }
 ```
 
-> NOTE for the implementer: the `scopes` field may store values as `target_id` (entity reference to `oauth2_scope`) OR `value` (string) depending on the simple_oauth version — the `$is_usable` closure checks both. Verify which by running `ddev drush ev '...->get("scopes")->getValue()...'` on a working consumer and keep only the correct one if you want to tidy. Do NOT set `is_default` — leaving it unset avoids hijacking the site's default consumer.
+> NOTE for the implementer: verified field names on the live `consumers` module are `client_id, secret, grant_types, scopes, user_id, is_default` (and more). `$local_scopes` is intentionally unused on the consumer entity (scopes are token-time only) — it documents the intended scope set; do not write it to the consumer. If `php:script` rejects a relative path, pass the path as the implementer runs it (see Step 2, which copies the script into the project's `web/`).
 
 - [ ] **Step 2: Run it against weber2 and capture the result line**
 
 ```bash
 cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
-# Copy the in-progress script into this project for testing (it is not installed via addon yet):
-cp /Users/nickopris/Work/fg/projects/ddev-addons/DDEV-migration-addon/website-to-components/scripts/bootstrap-canvas.php website-to-components/scripts/bootstrap-canvas.php
-ddev drush php:script website-to-components/scripts/bootstrap-canvas.php
+# Copy the in-progress script into web/ (drush php:script resolves relative to the composer root = web/):
+cp /Users/nickopris/Work/fg/projects/ddev-addons/DDEV-migration-addon/website-to-components/scripts/bootstrap-canvas.php web/bootstrap-canvas.php
+ddev exec -d /var/www/html/web vendor/bin/drush php:script bootstrap-canvas.php
 ```
-Expected: since weber2 already has a working consumer (`canvas-ai-eee`), the script logs `Reusing existing usable consumer ...` and emits `"client_secret":"__keep__"` with `"site_url":"https://weber2.ddev.site"`.
+Expected: since weber2 already has a working consumer (`Canvas AI` / `canvas-ai-eee`, uid=1), the script logs `Reusing existing usable consumer ...` and emits `"client_secret":"__keep__"` with `"site_url":"https://weber2.ddev.site"`. It also flips `jsonapi read_only` from true→false (the first run) and reports `page` revisions already on.
 
 - [ ] **Step 3: Verify the existing OAuth token still works (reuse path)**
 
@@ -268,20 +358,21 @@ CID=$(grep '^CANVAS_LOCAL_CLIENT_ID=' storybook/.env | cut -d= -f2)
 CSECRET=$(grep '^CANVAS_LOCAL_CLIENT_SECRET=' storybook/.env | cut -d= -f2)
 ddev exec curl -s -X POST https://weber2.ddev.site/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=$CID&client_secret=$CSECRET&scope=canvas:asset_library canvas:js_component member" | head -c 200
+  -d "grant_type=client_credentials&client_id=$CID&client_secret=$CSECRET&scope=canvas:asset_library canvas:js_component" | head -c 200
 ```
-Expected: JSON containing `"access_token"` (the reused consumer authenticates). A `401` means weber2's consumer was not actually usable — then the script should have taken the *create* path instead; investigate `$is_usable`.
+Expected: JSON containing `"access_token"` (the reused consumer authenticates with the two-scope set — NO `member`). A `401`/`invalid_scope` means something regressed; investigate.
 
 - [ ] **Step 4: Run twice; verify NO new consumer was created on the reuse path**
 
 ```bash
 cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
-BEFORE=$(ddev drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
-ddev drush php:script website-to-components/scripts/bootstrap-canvas.php >/dev/null
-AFTER=$(ddev drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
+BEFORE=$(ddev exec -d /var/www/html/web vendor/bin/drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
+ddev exec -d /var/www/html/web vendor/bin/drush php:script bootstrap-canvas.php >/dev/null
+AFTER=$(ddev exec -d /var/www/html/web vendor/bin/drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
 echo "consumers before=$BEFORE after=$AFTER"
+rm -f web/bootstrap-canvas.php
 ```
-Expected: `before == after` (reuse created nothing). Clean up the test copy afterward: `rm website-to-components/scripts/bootstrap-canvas.php` in weber2 (it is git-untracked there).
+Expected: `before == after` (reuse created nothing). The `rm` cleans up the test copy (git-untracked in weber2).
 
 - [ ] **Step 5: Commit**
 
@@ -316,9 +407,12 @@ set -euo pipefail
 
 SCRIPT="/var/www/html/website-to-components/scripts/bootstrap-canvas.php"
 ENV_FILE="/var/www/html/storybook/.env"
+# drush lives at the composer root (web/), and DDEV_PRIMARY_URL is exported so the
+# bootstrap script can emit the public site URL into .env.
+DRUSH="/var/www/html/web/vendor/bin/drush"
 
 echo "==> Bootstrapping Canvas migration permissions (idempotent)..."
-OUT="$(drush php:script "$SCRIPT")"
+OUT="$(cd /var/www/html/web && "$DRUSH" php:script "$SCRIPT")"
 echo "$OUT" | grep '^\[bootstrap\]' || true
 
 RESULT="$(echo "$OUT" | sed -n 's/^\[bootstrap-result\] //p' | tail -n1)"
