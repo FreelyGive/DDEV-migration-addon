@@ -12,11 +12,17 @@ export async function resolveDiscovery({ scope, origin, fetchXml, listMenuPages,
   if (scope === "menus") {
     return { pages: await listMenuPages(), source: "menus" };
   }
-  // scope === "site": prefer seo-sitemap when available and returns urls
+  // scope === "site": prefer seo-sitemap when available and returns urls.
+  // Wrapped in try/catch so a throwing runner (e.g. the real claude-seo CLI
+  // erroring) degrades to the fallback chain instead of aborting the whole run.
   if (seoSitemap) {
-    const seo = await seoSitemap();
-    if (seo.source === "seo-sitemap" && seo.urls.length > 0) {
-      return { pages: seo.urls, source: "seo-sitemap" };
+    try {
+      const seo = await seoSitemap();
+      if (seo && seo.source === "seo-sitemap" && seo.urls.length > 0) {
+        return { pages: seo.urls, source: "seo-sitemap" };
+      }
+    } catch (e) {
+      log("claude-seo discovery failed (" + e.message + "); falling back to sitemap.xml / menus.");
     }
   }
   // fall back to raw sitemap.xml parse → robots → menu-reachable

@@ -54,3 +54,11 @@ test("site scope falls back to discoverSiteUrls when seoSitemap returns unavaila
   assert.equal(res.source, "menus");
   assert.equal(res.pages.length, 2);
 });
+
+test("site scope falls back gracefully when seoSitemap throws (does not abort the run)", async () => {
+  const seoSitemap = async () => { throw new Error("claude-seo CLI boom"); };
+  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
+  // The throw must be caught and discovery must still resolve via the fallback chain.
+  assert.equal(res.source, "menus");
+  assert.equal(res.pages.length, 2);
+});
