@@ -1,17 +1,33 @@
 ---
 name: visual-page-section-segmentation
-description: Detects and segments logical sections within a full-page website screenshot using AI vision. Read the existing screenshot.png with the Read tool and use semantic visual understanding — content structure, background changes, layout rhythm, component roles — to identify section boundaries precisely. Never use pixel sampling, ImageMagick, bash color probing, or Playwright to take new screenshots.
+description: Segments a full-page website screenshot into logical sections. Starts from DOM-measured boundaries (dom-sections.json, real getBoundingClientRect geometry) and REFINES them semantically with AI vision — merging, splitting, and labelling. Falls back to pure visual estimation only when no DOM bounds exist. Never take new screenshots or probe pixel colors with bash.
 ---
 
 **HARD RULES — read before doing anything:**
 
-1. **Do NOT take new screenshots.** Do NOT use Playwright, playwright-cli, ImageMagick, `convert`, `identify`, or any bash pixel-sampling technique. Do NOT probe pixel colors with shell commands.
-2. **Read the existing screenshot** with the `Read` tool: `website-to-components/output/<host>/<page-slug>/screenshot.png`
-3. **Use AI vision** — look at the image and identify section boundaries semantically, the same way a designer would by eye.
+1. **START FROM THE DOM-MEASURED BOUNDS.** Read `website-to-components/output/<host>/<page-slug>/dom-sections.json` FIRST. The screenshot job measured the page's REAL section containers via `getBoundingClientRect` — these bounds are accurate, contiguous, and never cut through a component (they ARE the component containers). They are your starting point, NOT a visual pixel-estimate.
+2. **Do NOT take new screenshots** and do NOT probe pixel colors with bash/ImageMagick/Playwright. (Measuring DOM geometry is done for you — that's what `dom-sections.json` is. You don't run it; you read its output.)
+3. **Read the existing screenshot** with the `Read` tool (`.../screenshot.png`) and use AI vision to REFINE the DOM bounds — not to replace them.
 
-## How to detect sections
+## How to detect sections — refine the DOM bounds
 
-Look at the screenshot and identify visually distinct horizontal content blocks. Use your understanding of web layout — not pixel math. Ask yourself:
+`dom-sections.json` looks like:
+```json
+{ "pageWidth": 1440, "pageHeight": 3346, "container": "ARTICLE.sections", "coverage": 0.9,
+  "sections": [ { "y": 0, "height": 455, "top": 0, "bottom": 455, "tag": "section", "cls": "page-section ..." }, ... ] }
+```
+Each entry is a real, full-width layout block. Look at the screenshot alongside these bounds and adjust ONLY where vision disagrees with the DOM grouping:
+
+- **MERGE** adjacent DOM blocks that are visually one section — most commonly a bare navbar block sitting above a hero (→ one hero section), or a decorative divider block that belongs to the section above/below.
+- **SPLIT** a single DOM block only when it visually contains two clearly distinct sections (different background AND different component role).
+- **LABEL** each final section and give a one-line reason.
+- **Keep `y`/`height` snapped to the DOM `top`/`bottom` values** unless you are deliberately splitting or merging. Do not nudge a boundary off a real DOM edge — that's how crops start cutting through components.
+
+The DOM bounds already cover the full page top-to-bottom (including the footer). Preserve that full coverage: no gaps, no overlaps.
+
+### Fallback — no DOM bounds available
+
+If `dom-sections.json` is missing or contains `{ "error": ... }` (rare — a page with no usable layout container), THEN fall back to pure visual estimation from the screenshot. In that mode, look at the screenshot and identify visually distinct horizontal content blocks using your understanding of web layout — and be especially careful never to cut through text, a card grid, or a device mockup mid-component. Ask yourself:
 
 - Does the background color or image change here?
 - Does the layout structure shift (e.g. full-width hero → card grid)?
@@ -60,7 +76,9 @@ After reading the screenshot and identifying sections visually, output a markdow
 - **File:** [section-NN.png]
 ```
 
-Bounds must cover the full page width (x=0, width = page width). The y and height values come from your visual estimate of where each section starts and ends in the image — be precise enough to avoid cutting through text or images mid-way.
+Bounds must cover the full page width (x=0, width = page width). The y and height values come from `dom-sections.json` (snapped to real DOM edges), adjusted only where you deliberately merged or split — NOT free-hand visual estimates. Only in the no-DOM fallback do they come from visual estimation, in which case be precise enough to avoid cutting through text, cards, or images mid-component.
+
+After producing the final list, the cropper (`applySections`) validates it: it rejects overlaps, clamps to page height, and warns on gaps or any section spanning >70% of the page. If you see those warnings, your merge/split was wrong — revisit it.
 
 Example output:
 
