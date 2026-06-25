@@ -1,18 +1,24 @@
 #!/bin/bash
 ## Description: Bootstrap Canvas migration permissions (JSON:API write, OAuth client, service user, page revisions) — idempotent
-## Usage: canvas-bootstrap
+## Usage: ddev canvas-bootstrap
 ## Example: ddev canvas-bootstrap
+## ExecRaw: false
 
 set -euo pipefail
 
-SCRIPT="/var/www/html/website-to-components/scripts/bootstrap-canvas.php"
-ENV_FILE="/var/www/html/storybook/.env"
-# drush lives at the composer root (web/), and DDEV_PRIMARY_URL is exported so the
-# bootstrap script can emit the public site URL into .env.
+# Host command: the bootstrap PHP needs drush, which lives in the WEB container,
+# while storybook/.env is a host file we must write directly. So we run the
+# script in the web container via `ddev exec -s web` and parse its result here.
+#
+# DDEV_APPROOT is exported by DDEV for host commands = the project root on the host.
+APPROOT="${DDEV_APPROOT:-$(pwd)}"
+SCRIPT_IN_WEB="/var/www/html/website-to-components/scripts/bootstrap-canvas.php"
+ENV_FILE="${APPROOT}/storybook/.env"
 DRUSH="/var/www/html/web/vendor/bin/drush"
 
 echo "==> Bootstrapping Canvas migration permissions (idempotent)..."
-OUT="$(cd /var/www/html/web && "$DRUSH" php:script "$SCRIPT")"
+# Run the bootstrap script inside the web container (has drush + DDEV_PRIMARY_URL).
+OUT="$(ddev exec -s web bash -c "cd /var/www/html/web && '$DRUSH' php:script '$SCRIPT_IN_WEB'")"
 echo "$OUT" | grep '^\[bootstrap\]' || true
 
 RESULT="$(echo "$OUT" | sed -n 's/^\[bootstrap-result\] //p' | tail -n1)"
@@ -30,7 +36,8 @@ mkdir -p "$(dirname "$ENV_FILE")"
 touch "$ENV_FILE"
 
 # Upsert one key without clobbering unrelated lines. The sentinel value
-# "__keep__" means: leave whatever is already in .env untouched (reuse path).
+# "__keep__" (and empty) means: leave whatever is already in .env untouched
+# (reuse path — a pre-existing consumer's hashed secret cannot be recovered).
 upsert_env() {
   local key="$1" val="$2"
   if [ "$val" = "__keep__" ] || [ -z "$val" ]; then
@@ -44,9 +51,9 @@ upsert_env() {
   echo "${key}=${val}" >> "$ENV_FILE"
 }
 
-upsert_env "CANVAS_LOCAL_SITE_URL"      "$SITE_URL"
-upsert_env "CANVAS_LOCAL_CLIENT_ID"     "$CLIENT_ID"
-upsert_env "CANVAS_LOCAL_CLIENT_SECRET" "$CLIENT_SECRET"
+upsert_env "CANVAS_LOCAL_SITE_URL"       "$SITE_URL"
+upsert_env "CANVAS_LOCAL_CLIENT_ID"      "$CLIENT_ID"
+upsert_env "CANVAS_LOCAL_CLIENT_SECRET"  "$CLIENT_SECRET"
 upsert_env "CANVAS_LOCAL_JSONAPI_PREFIX" "$JSONAPI_PREFIX"
 
 echo "✓ Updated CANVAS_LOCAL_* in storybook/.env (kept __keep__ values)"

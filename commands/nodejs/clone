@@ -14,15 +14,12 @@ fi
 
 shift  # remaining args passed through to run.js
 
-# Idempotent permission bootstrap (JSON:API write, OAuth client, service user,
-# page revisions, storybook/.env). Non-fatal: a warning here should not block
-# screenshots/discovery, only the later auto-push.
-if command -v ddev-canvas-bootstrap >/dev/null 2>&1 || [ -x "/var/www/html/.ddev/commands/web/canvas-bootstrap" ]; then
-  echo "==> Preflight: Canvas permission bootstrap"
-  bash /var/www/html/.ddev/commands/web/canvas-bootstrap || echo "⚠ Bootstrap reported a problem; continuing. Auto-push may be skipped."
-else
-  echo "⚠ canvas-bootstrap command not found; skipping permission bootstrap."
-fi
+# NOTE: permission bootstrap runs as the HOST command `ddev canvas-bootstrap`
+# (it needs drush — which lives in the web container — and writes the host
+# storybook/.env). This `clone` command runs in the nodejs container and cannot
+# invoke a host command, so bootstrap is not called inline here. The reminder
+# below points users at it; it is idempotent and safe to re-run.
+echo "==> If local permissions are not bootstrapped yet, run from the host first: ddev canvas-bootstrap"
 
 cd /var/www/html/website-to-components
 node scripts/run.js "$URL" "$@"

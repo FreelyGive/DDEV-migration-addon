@@ -59,16 +59,22 @@ The migration pipeline runs inside the DDEV web container. Results are written t
 
 ## Permission bootstrap
 
-`ddev clone` runs `ddev canvas-bootstrap` automatically before discovery. It is
-idempotent and:
+Run `ddev canvas-bootstrap` once (from the host) before your first
+`ddev clone`. It is a host command (it uses `drush` in the web container and
+writes the host `storybook/.env`), idempotent, and safe to re-run. It:
 
 - enables JSON:API read/write,
-- creates the `Canvas Migration` OAuth consumer (Client Credentials, scopes
-  `canvas:asset_library canvas:js_component member`),
-- assigns the `canvas_migration` service user to that consumer (without this the
-  Canvas REST API returns 401),
+- ensures a usable OAuth consumer exists — reusing any consumer that already has
+  the Client-Credentials grant and an assigned user, or creating one otherwise
+  (without an assigned user the Canvas REST API returns 401),
 - enables revisions on the `page` content type (so re-runs upsert safely),
-- writes `CANVAS_LOCAL_SITE_URL` / `CANVAS_LOCAL_CLIENT_ID` /
-  `CANVAS_LOCAL_CLIENT_SECRET` into `storybook/.env`.
+- writes `CANVAS_LOCAL_SITE_URL` (the public `.ddev.site` URL),
+  `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET`, and
+  `CANVAS_LOCAL_JSONAPI_PREFIX` into `storybook/.env`. On the reuse path the
+  existing secret is preserved (a hashed consumer secret cannot be recovered).
 
-Run it on its own at any time with `ddev canvas-bootstrap`.
+The local OAuth scope is `canvas:asset_library canvas:js_component` (the `member`
+scope is remote/Acquia-only and is invalid locally).
+
+`ddev clone` reminds you to run it; because it cannot call a host command from
+inside the nodejs container, it does not run bootstrap inline.
