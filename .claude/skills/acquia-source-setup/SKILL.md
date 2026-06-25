@@ -215,10 +215,15 @@ uploaded as Drupal media entities. The file upload endpoint is
 `jpg`, `jpeg` are accepted — `.webp` files are auto-converted to jpg via `sips` (macOS) or `ffmpeg` (Linux).
 
 > The media library rejects `.webp` outright (`Only png gif jpg jpeg`). If your
-> starter has no auto-conversion step, convert webp → png/jpg before upload
-> (ImageMagick in the container). **Convert logos and any image with a
-> transparent background to PNG, not JPG** — JPG flattens transparency onto a
-> solid (usually black/white) box.
+> starter has no auto-conversion step, convert webp → png/jpg before upload. Don't
+> assume a converter is installed — the standard DDEV web image ships PHP **GD**
+> (always available) but **not** the ImageMagick CLI (`convert`/`magick`) or
+> `cwebp`. Check first (`ddev exec command -v convert cwebp`); if absent, convert
+> via PHP/GD (`imagecreatefromwebp` → `imagepng`), or add `imagemagick` through a
+> `.ddev/web-build/Dockerfile.*` and `ddev restart`. **Convert logos and any image
+> with a transparent background to PNG, not JPG** — JPG flattens transparency onto
+> a solid (usually black/white) box, and GD's webp→png preserves alpha (enable
+> `imagealphablending(false)` + `imagesavealpha(true)`).
 
 ```bash
 # Upload all images in a directory
