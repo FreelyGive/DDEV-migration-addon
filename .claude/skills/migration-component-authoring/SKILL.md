@@ -67,6 +67,19 @@ represent:
   ```
   Relative imports like `../rmh_footer/index.jsx` are rejected by the same lint rule.
 - `cva` from `class-variance-authority` is normal.
+- **Data-only helper modules must be inlined, not relatively imported.** The
+  `drupal-canvas/component-imports` rule rejects relative imports even for pure
+  data (e.g. an icon-data `.js` file beside the component). Inline the data
+  directly into the component's `index.jsx`, or move it under `@/components`.
+- **Minimise `@/components` imports in section/page-level components.** A
+  component placed directly on a deployed page can silently fail to hydrate when
+  it imports certain `@/components/*` sub-components — it renders in Storybook but
+  is **blank on the live site**, with a console error like
+  `[astro-island] Error hydrating … Failed to resolve module specifier "@/components/…"`.
+  For top-level section components, prefer `drupal-canvas` primitives
+  (`FormattedText`, `cn`, `Image`) and plain HTML (`<h1>`/`<h2>`) over
+  cross-component imports, and verify each on the **live deployed render**, not
+  just Storybook.
 
 ## Component patterns
 
@@ -146,7 +159,45 @@ not the components.
 For everything else — use Tailwind classes. If a value isn't in the theme, use
 arbitrary value syntax: `bg-[#1a2b3c]`, `pt-[72px]`, `text-[13px]`.
 
+### Section components must self-frame (there is no page wrapper on Source)
+
+On the deployed page, components render as a **flat list** — there are no wrapper
+divs around sections. Any layout that relied on a Storybook story wrapper (e.g. a
+`<div className="max-w-screen-xl mx-auto">` in the story) renders **full-width /
+unframed on the live site**. So every section-level component must own its own
+frame: `mx-auto max-w-[…] px-4` plus its vertical padding. Never depend on a
+story wrapper for centering, max-width, or spacing — express it as a prop or bake
+it into the component.
+
+### `max-w-screen-*` is a dead no-op in Tailwind v4 — it silently goes full-width
+
+In Tailwind CSS v4 the `max-w-screen-{sm,md,lg,xl,2xl}` utilities are **removed**.
+The class still emits `max-width: var(--breakpoint-xl)`, but `--breakpoint-*` are
+build-time-only variables not exposed at runtime, so they resolve to nothing →
+`max-width: none` → full width. Use **`max-w-7xl`** (= 1280px, compiles to a real
+`--container-*` token) or an arbitrary value like `max-w-[1140px]`. Diagnose by
+reading `getComputedStyle(el).maxWidth` on the live render — if it is `none`
+despite a `max-w-*` class, it is a v4-removed token.
+
 ## Matching source site visual styles
+
+### Measure the source's ACTUAL container width — don't assume a Tailwind token
+
+Don't default the content container to `max-w-7xl` (1280px). Measure the source
+site's content wrapper (`getComputedStyle(container).width` — a Bootstrap
+`.container` is often **1140px**, not 1280) and bake that exact width into the
+components with an arbitrary value (`max-w-[1140px]`) when no token fits.
+
+### `currentColor` in inlined sprite icons resolves to the icon's OWN color
+
+When you inline a sprite `<symbol>` that uses `fill="currentColor"`, do **not**
+assume `currentColor` inherits body-text color. Measure the source icon's own
+computed `color` (`getComputedStyle(svg).color`) and set that exact value on your
+wrapper `<svg>` — on some sites it is a light grey that produces a deliberate
+two-tone effect. Keep explicit stroke/fill hex values baked in; treat only
+`currentColor` as variable.
+
+## Matching source site visual styles — special effects
 
 When building components to replicate a source site's design:
 
@@ -623,6 +674,13 @@ provide human-readable display labels for the UI.
 
 **Note:** Enum values cannot contain dots.
 
+**Match the starter's existing convention when it differs.** The lowercase rule
+is a default, not absolute — the validator also accepts **Title-Case** enum
+values (`Solid`, `Centered`, `Large`). Some starters use Title-Case throughout.
+Before writing enums, read a couple of existing `component.yml` files in the
+project and **match whichever convention they use** — consistency within the
+starter wins over the blanket lowercase rule.
+
 ```yaml
 # Correct
 enum:
@@ -756,7 +814,26 @@ const htmlContent = typeof text === 'object' ? text.value : text;
 - **Test with missing props** in Storybook — create a story variant with
   minimal/empty props to verify the component doesn't crash.
 - **Never access nested properties** on a prop without checking the parent
-  exists first.
+  exists first. (Also audit *existing* shared components you reuse — an unguarded
+  `const { src } = image;` will crash at SSR/hydration the moment you reuse the
+  component without that prop.)
+
+### Prop vs. derive-in-component: not every behaviour needs a prop
+
+A JS function-arg default that is **not declared in `component.yml`** cannot be
+passed as a page input — `canvas-jsonapi update` rejects it as an unknown prop.
+Two ways to control such behaviour on the deployed page:
+
+- **(a) Add a real `component.yml` prop** (+ push) — when an author genuinely
+  needs to choose per instance.
+- **(b) Derive the behaviour INSIDE the component** from data it already has —
+  when the rule is intrinsic to the content. Example: a card that auto-detects a
+  link list (`/<ul[\s>]/i.test(textHtml)`) and disables its hover background for
+  those cards only. No new prop, no per-instance input, works on Source
+  immediately.
+
+Prefer (b) for intrinsic rules; reach for (a) only when per-instance choice is
+needed.
 
 ## JSX Syntax Rules
 
