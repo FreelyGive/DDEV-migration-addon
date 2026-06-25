@@ -32,17 +32,78 @@ function parseMarkdownSections(markdown, imageWidth) {
   return sections.sort((a, b) => a.y - b.y);
 }
 
+/**
+ * Validate + repair section bounds before cropping. Catches the failure modes
+ * that produced badly-cropped sections: a section that grabs the whole page,
+ * overlaps, gaps, and bounds that run past the image. Bounds are sorted, clamped
+ * to the image, de-overlapped, and gaps/uncropped regions are reported. Throws
+ * only when the set is structurally hopeless (no valid section survives).
+ */
+export function validateSections(sections, imageHeight, imageWidth) {
+  if (!Array.isArray(sections) || sections.length === 0) {
+    throw new Error("validateSections: empty section list");
+  }
+  const sorted = sections
+    .map((s) => ({ ...s, y: Math.max(0, Math.round(Number(s.y))), height: Math.round(Number(s.height)) }))
+    .filter((s) => Number.isFinite(s.y) && Number.isFinite(s.height) && s.height >= 1)
+    .sort((a, b) => a.y - b.y);
+
+  const warnings = [];
+  const fixed = [];
+  for (let i = 0; i < sorted.length; i++) {
+    const s = { ...sorted[i] };
+    if (s.y >= imageHeight) { warnings.push(`dropped "${s.label ?? i + 1}" — y(${s.y}) past page height(${imageHeight})`); continue; }
+    // Remove overlap with the previous kept section.
+    const prev = fixed[fixed.length - 1];
+    if (prev && s.y < prev.y + prev.height) {
+      const newTop = prev.y + prev.height;
+      s.height -= newTop - s.y;
+      s.y = newTop;
+      if (s.height < 1) { warnings.push(`dropped "${s.label ?? i + 1}" — fully overlapped by previous`); continue; }
+    }
+    // Flag the "grabbed the whole page" bug BEFORE clamping — once we clamp the
+    // height to the image, an over-large request looks normal. Compare the
+    // REQUESTED span (and the requested bottom) against the page.
+    const requestedHeight = s.height;
+    if (sorted.length > 1 && (requestedHeight > imageHeight * 0.7 || s.y + requestedHeight > imageHeight * 1.2)) {
+      warnings.push(`section "${s.label ?? i + 1}" requested ${requestedHeight}px (${Math.round((requestedHeight / imageHeight) * 100)}% of the page) — likely a wrong boundary that grabbed the whole page, not a real section`);
+    }
+    if (s.y + s.height > imageHeight) s.height = imageHeight - s.y;
+    fixed.push(s);
+  }
+  if (fixed.length === 0) throw new Error("validateSections: no valid sections after repair — bounds are unusable");
+
+  // Report vertical gaps + uncropped top/bottom (content the crops would miss).
+  for (let i = 1; i < fixed.length; i++) {
+    const gap = fixed[i].y - (fixed[i - 1].y + fixed[i - 1].height);
+    if (gap > 20) warnings.push(`gap of ${gap}px between section ${i} and ${i + 1} — uncropped content`);
+  }
+  if (fixed[0].y > 20) warnings.push(`first section starts at y:${fixed[0].y} — top is uncropped`);
+  const lastBottom = fixed[fixed.length - 1].y + fixed[fixed.length - 1].height;
+  if (imageHeight - lastBottom > 20) warnings.push(`last section ends at y:${lastBottom} — bottom ${imageHeight - lastBottom}px (likely footer) is uncropped`);
+
+  if (warnings.length) {
+    console.warn("⚠ Section-bounds validation warnings:");
+    for (const w of warnings) console.warn(`    - ${w}`);
+  }
+  return { sections: fixed, warnings };
+}
+
 export async function cropSections(screenshotPath, sections, outputDir, imageWidth) {
   ensureDir(outputDir);
   const sectionPaths = [];
 
-  for (let i = 0; i < sections.length; i++) {
-    const s = sections[i];
+  const meta = await sharp(screenshotPath).metadata();
+  const imageHeight = meta.height;
+  const { sections: validated } = validateSections(sections, imageHeight, imageWidth);
+
+  for (let i = 0; i < validated.length; i++) {
+    const s = validated[i];
     const label = String(i + 1).padStart(2, "0");
     const outPath = join(outputDir, `section-${label}.png`);
 
     const top = Math.max(0, s.y);
-    const cropHeight = s.height;
+    const cropHeight = Math.min(s.height, imageHeight - top);
     if (cropHeight < 1) continue;
 
     await sharp(screenshotPath)
@@ -50,7 +111,7 @@ export async function cropSections(screenshotPath, sections, outputDir, imageWid
       .toFile(outPath);
 
     sectionPaths.push(outPath);
-    console.log(`  Saved ${outPath} (${s.label}, y:${top}–${top + cropHeight})`);
+    console.log(`  Saved ${outPath} (${s.label ?? `Section ${i + 1}`}, y:${top}–${top + cropHeight})`);
   }
 
   return sectionPaths;
