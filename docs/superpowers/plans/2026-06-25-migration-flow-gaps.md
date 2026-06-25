@@ -15,7 +15,8 @@
 - Tests run with: `cd website-to-components && node --test test/*.test.mjs` — must stay green (31 tests passing today; this plan adds more).
 - Bootstrap MUST be idempotent: every step is check-then-act, safe to re-run, no duplicate OAuth clients / menus / revisions flips.
 - OAuth scope string is exactly `canvas:asset_library canvas:js_component member` (verbatim, matches `lib/jsonapi.js:5` `FULL_SCOPE`).
-- `.env` lives at the **storybook** project's `.env` (`storybook/.env`), and uses keys `CANVAS_LOCAL_SITE_URL`, `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET` (verbatim, matches `lib/bootstrap-check.js:1`). `CANVAS_LOCAL_SITE_URL` is the **internal** CMS URL (container-internal), not the public `.ddev.site` URL.
+- `.env` lives at the **storybook** project's `.env` (`storybook/.env`), and uses keys `CANVAS_LOCAL_SITE_URL`, `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET` (verbatim, matches `lib/bootstrap-check.js:1`). **`CANVAS_LOCAL_SITE_URL` is the PUBLIC `.ddev.site` URL** (e.g. `https://weber2.ddev.site`) — this is what the working `canvas:push:local` script in `storybook/package.json` passes to `canvas push --site-url`. Do NOT write the container-internal `http://web/web` URL; that breaks the existing push. There is also a `CANVAS_LOCAL_JSONAPI_PREFIX` key (value `jsonapi`) already present in working `.env` files — preserve it; bootstrap must not delete or change it.
+- **Consumer idempotency = reuse-any-valid-consumer, not own-a-named-one.** Working sites already have a functional consumer (e.g. `client_id=canvas-ai-eee`). Bootstrap must (1) verify whether a usable consumer already exists — assigned user + Client Credentials grant + the required scopes — and reuse it if so (emit its existing client_id/secret), and only (2) create a dedicated `canvas_migration` consumer when no usable one exists. Never overwrite or duplicate a working consumer.
 - Whole-site scope: **menus always come from nav extraction; the page set comes from the sitemap** (design Subsystem 2). Do not derive menus from the sitemap.
 - No blind crawler. If no sitemap is found, fall back to menu-reachable + warn (existing `discoverSiteUrls` behavior — preserve it).
 - claude-seo is a hard dependency only for `--scope site`. If it is absent at run time, warn and fall back to menu-reachable (do not hard-fail the whole run).
@@ -124,99 +125,163 @@ git commit -m "feat(migration): bootstrap script — JSON:API write + page revis
 - Modify: `website-to-components/scripts/bootstrap-canvas.php` (append before end of file)
 
 **Interfaces:**
-- Consumes: the `consumers` + `simple_oauth` modules (ship with Canvas/Drupal recipe). Assumes a key for signing already exists (Canvas install provides it); if not, the script warns rather than crashing.
-- Produces: when run, ensures exactly one consumer labelled `Canvas Migration` exists with the scope set `canvas:asset_library canvas:js_component member`, Client Credentials enabled, **and a Drupal user assigned** (the commonly-missed step). Prints a final JSON line `[bootstrap-result] {"client_id":"...","client_secret":"...","site_url":"..."}` consumed by the DDEV command in Task A3.
+- Consumes: the `consumers` + `simple_oauth` modules (ship with Canvas/Drupal recipe). Assumes a signing key already exists (Canvas install provides it).
+- Produces: when run, guarantees a usable Client-Credentials consumer exists with scopes `canvas:asset_library canvas:js_component member` **and a Drupal user assigned**, REUSING any existing usable consumer rather than duplicating it. Prints a final JSON line `[bootstrap-result] {"client_id":"...","client_secret":"<value-or-__keep__>","site_url":"...","jsonapi_prefix":"jsonapi"}` consumed by Task A3.
+- **Secret-recovery constraint (discovered against the live site):** Drupal hashes consumer secrets on save, so the plaintext secret of a *pre-existing* consumer cannot be read back. Therefore: when reusing an existing consumer, emit `"client_secret":"__keep__"` to signal "do not change the secret already in `.env`". Only when the script *creates or resets* a consumer does it know the plaintext and emit it.
 
-- [ ] **Step 1: Append OAuth consumer + service user logic**
+- [ ] **Step 1: Append consumer-reuse + service-user logic**
 
-Append to `website-to-components/scripts/bootstrap-canvas.php` (before any closing concerns — file has no closing `?>`):
+First, confirm the consumer entity field names on the live site (do this before writing — the array keys below must match):
+
+```bash
+ddev drush ev '$f=\Drupal::entityTypeManager()->getStorage("consumer")->create([])->getFieldDefinitions(); echo implode(",", array_keys($f));'
+```
+Expected to include: `client_id`, `secret`, `grant_types`, `scopes`, `user_id`. If a name differs on this `consumers` version, use the live name throughout.
+
+Append to `website-to-components/scripts/bootstrap-canvas.php` (no closing `?>`):
 
 ```php
 
-// 3. Ensure a service user for the consumer.
-$user_storage = \Drupal::entityTypeManager()->getStorage('user');
-$existing_users = $user_storage->loadByProperties(['name' => 'canvas_migration']);
-$service_user = $existing_users ? reset($existing_users) : NULL;
-if (!$service_user) {
-  $service_user = $user_storage->create([
-    'name' => 'canvas_migration',
-    'status' => 1,
-    'roles' => ['administrator'],
-  ]);
-  $service_user->save();
-  bootstrap_log('Created service user "canvas_migration".');
-}
-else {
-  bootstrap_log('Service user "canvas_migration" already exists.');
+// Required scope machine names. Adjust if the live scope entity ids differ
+// (verify: ddev drush ev '...oauth2_token... ' or the consumer "scopes" field
+// allowed values). These three match lib/jsonapi.js FULL_SCOPE.
+$required_scopes = ['canvas:asset_library', 'canvas:js_component', 'member'];
+
+// The public site URL the storybook push uses (CANVAS_LOCAL_SITE_URL). Derive
+// from the request base; for DDEV this is https://<project>.ddev.site. We read
+// it from the DDEV_PRIMARY_URL env if present, else fall back to a global the
+// installer can set. NEVER emit the container-internal http://web/web here —
+// the storybook `canvas push --site-url` needs the public URL.
+$site_url = getenv('DDEV_PRIMARY_URL') ?: getenv('CANVAS_LOCAL_SITE_URL') ?: '';
+if ($site_url === '') {
+  bootstrap_log('WARNING: could not determine public site URL; emitting __keep__ so .env is left unchanged.');
+  $site_url = '__keep__';
 }
 
-// 4. Ensure the OAuth consumer (idempotent by label).
 $consumer_storage = \Drupal::entityTypeManager()->getStorage('consumer');
-$existing = $consumer_storage->loadByProperties(['label' => 'Canvas Migration']);
-$consumer = $existing ? reset($existing) : NULL;
+$user_storage = \Drupal::entityTypeManager()->getStorage('user');
 
-// A stable secret so re-runs keep the same .env. Derived, not random, so the
-// script is fully idempotent. Canvas hashes it on save; we keep the plaintext
-// to emit into .env.
-$secret = 'canvas-migration-' . substr(hash('sha256', \Drupal::service('settings')->get('hash_salt') . 'canvas-migration'), 0, 32);
+/**
+ * A consumer is "usable" if it has Client Credentials, all required scopes,
+ * and a user assigned. Returns TRUE/FALSE.
+ */
+$is_usable = function ($consumer) use ($required_scopes) {
+  $grants = array_column($consumer->get('grant_types')->getValue(), 'value');
+  if (!in_array('client_credentials', $grants, TRUE)) {
+    return FALSE;
+  }
+  $scopes = array_column($consumer->get('scopes')->getValue(), 'target_id') ?:
+            array_column($consumer->get('scopes')->getValue(), 'value');
+  foreach ($required_scopes as $needed) {
+    if (!in_array($needed, $scopes, TRUE)) {
+      return FALSE;
+    }
+  }
+  $uid = $consumer->get('user_id')->target_id;
+  return !empty($uid);
+};
 
-if (!$consumer) {
-  $consumer = $consumer_storage->create([
-    'label' => 'Canvas Migration',
-    'client_id' => 'canvas_migration',
-    'secret' => $secret,
-    'grant_types' => ['client_credentials'],
-    'scopes' => ['canvas:asset_library', 'canvas:js_component', 'member'],
-    'user_id' => $service_user->id(),
-    'is_default' => FALSE,
-  ]);
-  $consumer->save();
-  bootstrap_log('Created OAuth consumer "Canvas Migration".');
+// 3. Try to REUSE any already-usable consumer (do not disturb a working setup).
+$reused = NULL;
+foreach ($consumer_storage->loadMultiple() as $candidate) {
+  if ($is_usable($candidate)) {
+    $reused = $candidate;
+    break;
+  }
+}
+
+if ($reused) {
+  // Cannot read the existing secret (hashed) — signal "keep .env secret".
+  bootstrap_log('Reusing existing usable consumer "' . $reused->label() . '" (client_id=' . $reused->getClientId() . ').');
+  fwrite(STDOUT, '[bootstrap-result] ' . json_encode([
+    'client_id' => $reused->getClientId(),
+    'client_secret' => '__keep__',
+    'site_url' => $site_url,
+    'jsonapi_prefix' => 'jsonapi',
+  ]) . "\n");
 }
 else {
-  // Re-assert scopes + service user in case they drifted.
-  $consumer->set('grant_types', ['client_credentials']);
-  $consumer->set('scopes', ['canvas:asset_library', 'canvas:js_component', 'member']);
-  $consumer->set('user_id', $service_user->id());
-  $consumer->set('secret', $secret);
-  $consumer->save();
-  bootstrap_log('OAuth consumer "Canvas Migration" reasserted (scopes + service user).');
+  // 3b. No usable consumer — create a dedicated one with a known plaintext secret.
+  $existing_users = $user_storage->loadByProperties(['name' => 'canvas_migration']);
+  $service_user = $existing_users ? reset($existing_users) : NULL;
+  if (!$service_user) {
+    $service_user = $user_storage->create(['name' => 'canvas_migration', 'status' => 1, 'roles' => ['administrator']]);
+    $service_user->save();
+    bootstrap_log('Created service user "canvas_migration".');
+  }
+  else {
+    bootstrap_log('Service user "canvas_migration" already exists.');
+  }
+
+  // Stable derived secret so re-creation (e.g. after a manual delete) is idempotent.
+  $secret = 'canvas-migration-' . substr(hash('sha256', \Drupal::service('settings')->get('hash_salt') . 'canvas-migration'), 0, 32);
+
+  $owned = $consumer_storage->loadByProperties(['label' => 'Canvas Migration']);
+  $consumer = $owned ? reset($owned) : NULL;
+  if (!$consumer) {
+    $consumer = $consumer_storage->create([
+      'label' => 'Canvas Migration',
+      'client_id' => 'canvas_migration',
+      'secret' => $secret,
+      'grant_types' => ['client_credentials'],
+      'scopes' => $required_scopes,
+      'user_id' => $service_user->id(),
+    ]);
+    $consumer->save();
+    bootstrap_log('Created OAuth consumer "Canvas Migration".');
+  }
+  else {
+    $consumer->set('grant_types', ['client_credentials']);
+    $consumer->set('scopes', $required_scopes);
+    $consumer->set('user_id', $service_user->id());
+    $consumer->set('secret', $secret);
+    $consumer->save();
+    bootstrap_log('Reset OAuth consumer "Canvas Migration" (scopes + user + secret).');
+  }
+
+  fwrite(STDOUT, '[bootstrap-result] ' . json_encode([
+    'client_id' => $consumer->getClientId(),
+    'client_secret' => $secret,
+    'site_url' => $site_url,
+    'jsonapi_prefix' => 'jsonapi',
+  ]) . "\n");
 }
-
-$client_id = $consumer->getClientId();
-$site_url = 'http://web/web';
-fwrite(STDOUT, '[bootstrap-result] ' . json_encode([
-  'client_id' => $client_id,
-  'client_secret' => $secret,
-  'site_url' => $site_url,
-]) . "\n");
 ```
 
-> NOTE for the implementer: confirm the consumer entity field names against the installed `consumers` module version on the local site (`ddev drush ev "print_r(\Drupal::entityTypeManager()->getStorage('consumer')->create([])->getFieldDefinitions());"`). The fields `client_id`, `secret`, `grant_types`, `scopes`, `user_id`, `is_default` are the stable names in `consumers` 1.x. If `client_id` is auto-generated (UUID) on your version, drop it from `create()` and read it back via `$consumer->getClientId()` (already done above). Also confirm `$site_url` matches the container-internal docroot URL for the DDEV-Canvas project (it is `http://web/web` for the nested `web/web` docroot used by the fresh-Drupal install; otherwise `http://web`).
+> NOTE for the implementer: the `scopes` field may store values as `target_id` (entity reference to `oauth2_scope`) OR `value` (string) depending on the simple_oauth version — the `$is_usable` closure checks both. Verify which by running `ddev drush ev '...->get("scopes")->getValue()...'` on a working consumer and keep only the correct one if you want to tidy. Do NOT set `is_default` — leaving it unset avoids hijacking the site's default consumer.
 
-- [ ] **Step 2: Run it and capture the result line**
+- [ ] **Step 2: Run it against weber2 and capture the result line**
 
 ```bash
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+# Copy the in-progress script into this project for testing (it is not installed via addon yet):
+cp /Users/nickopris/Work/fg/projects/ddev-addons/DDEV-migration-addon/website-to-components/scripts/bootstrap-canvas.php website-to-components/scripts/bootstrap-canvas.php
 ddev drush php:script website-to-components/scripts/bootstrap-canvas.php
 ```
-Expected: a `[bootstrap-result] {"client_id":"canvas_migration","client_secret":"canvas-migration-...","site_url":"http://web/web"}` line, plus consumer + service-user `[bootstrap]` lines.
+Expected: since weber2 already has a working consumer (`canvas-ai-eee`), the script logs `Reusing existing usable consumer ...` and emits `"client_secret":"__keep__"` with `"site_url":"https://weber2.ddev.site"`.
 
-- [ ] **Step 3: Verify the OAuth token actually works**
+- [ ] **Step 3: Verify the existing OAuth token still works (reuse path)**
 
 ```bash
-ddev exec curl -s -X POST http://web/web/oauth/token \
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+CID=$(grep '^CANVAS_LOCAL_CLIENT_ID=' storybook/.env | cut -d= -f2)
+CSECRET=$(grep '^CANVAS_LOCAL_CLIENT_SECRET=' storybook/.env | cut -d= -f2)
+ddev exec curl -s -X POST https://weber2.ddev.site/oauth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "grant_type=client_credentials&client_id=canvas_migration&client_secret=$(ddev drush php:script website-to-components/scripts/bootstrap-canvas.php 2>/dev/null | sed -n 's/.*"client_secret":"\([^"]*\)".*/\1/p')&scope=canvas:asset_library canvas:js_component member"
+  -d "grant_type=client_credentials&client_id=$CID&client_secret=$CSECRET&scope=canvas:asset_library canvas:js_component member" | head -c 200
 ```
-Expected: a JSON body containing `"access_token"`. A `401`/`invalid_client` means the service user was not assigned — re-check Step 1's `user_id`.
+Expected: JSON containing `"access_token"` (the reused consumer authenticates). A `401` means weber2's consumer was not actually usable — then the script should have taken the *create* path instead; investigate `$is_usable`.
 
-- [ ] **Step 4: Run twice; verify no duplicate consumer/user**
+- [ ] **Step 4: Run twice; verify NO new consumer was created on the reuse path**
 
 ```bash
-ddev drush php:script website-to-components/scripts/bootstrap-canvas.php
-ddev drush ev "echo count(\Drupal::entityTypeManager()->getStorage('consumer')->loadByProperties(['label' => 'Canvas Migration']));"
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
+BEFORE=$(ddev drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
+ddev drush php:script website-to-components/scripts/bootstrap-canvas.php >/dev/null
+AFTER=$(ddev drush ev 'echo count(\Drupal::entityTypeManager()->getStorage("consumer")->loadMultiple());')
+echo "consumers before=$BEFORE after=$AFTER"
 ```
-Expected: prints `1` (exactly one consumer). Lines now say "reasserted" / "already exists".
+Expected: `before == after` (reuse created nothing). Clean up the test copy afterward: `rm website-to-components/scripts/bootstrap-canvas.php` in weber2 (it is git-untracked there).
 
 - [ ] **Step 5: Commit**
 
@@ -235,7 +300,7 @@ git commit -m "feat(migration): bootstrap OAuth consumer + assigned service user
 
 **Interfaces:**
 - Consumes: `bootstrap-canvas.php` (Task A2) `[bootstrap-result]` JSON line.
-- Produces: a `ddev canvas-bootstrap` command that runs the script inside the web container and writes/updates `storybook/.env` with `CANVAS_LOCAL_SITE_URL`, `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET` (only those three keys; preserves other lines). Exit 0 on success.
+- Produces: a `ddev canvas-bootstrap` command that runs the script inside the web container and writes/updates `storybook/.env` with `CANVAS_LOCAL_SITE_URL`, `CANVAS_LOCAL_CLIENT_ID`, `CANVAS_LOCAL_CLIENT_SECRET`, `CANVAS_LOCAL_JSONAPI_PREFIX` (only those keys; preserves other lines). **When the script emits `client_secret` or `site_url` as the sentinel `__keep__`, that key is LEFT UNCHANGED in `.env`** (reuse path — we cannot recover an existing consumer's hashed secret, and must not blank it). Exit 0 on success.
 
 - [ ] **Step 1: Write the command**
 
@@ -262,18 +327,23 @@ if [ -z "$RESULT" ]; then
   exit 1
 fi
 
-CLIENT_ID="$(echo "$RESULT"   | sed -n 's/.*"client_id":"\([^"]*\)".*/\1/p')"
+CLIENT_ID="$(echo "$RESULT"     | sed -n 's/.*"client_id":"\([^"]*\)".*/\1/p')"
 CLIENT_SECRET="$(echo "$RESULT" | sed -n 's/.*"client_secret":"\([^"]*\)".*/\1/p')"
-SITE_URL="$(echo "$RESULT"    | sed -n 's/.*"site_url":"\([^"]*\)".*/\1/p')"
+SITE_URL="$(echo "$RESULT"      | sed -n 's/.*"site_url":"\([^"]*\)".*/\1/p')"
+JSONAPI_PREFIX="$(echo "$RESULT"| sed -n 's/.*"jsonapi_prefix":"\([^"]*\)".*/\1/p')"
 
 mkdir -p "$(dirname "$ENV_FILE")"
 touch "$ENV_FILE"
 
-# Upsert each key without clobbering unrelated lines.
+# Upsert one key without clobbering unrelated lines. The sentinel value
+# "__keep__" means: leave whatever is already in .env untouched (reuse path).
 upsert_env() {
   local key="$1" val="$2"
+  if [ "$val" = "__keep__" ] || [ -z "$val" ]; then
+    echo "  (keeping existing ${key})"
+    return 0
+  fi
   if grep -q "^${key}=" "$ENV_FILE"; then
-    # Use a temp file to avoid sed -i portability issues.
     grep -v "^${key}=" "$ENV_FILE" > "${ENV_FILE}.tmp"
     mv "${ENV_FILE}.tmp" "$ENV_FILE"
   fi
@@ -283,27 +353,31 @@ upsert_env() {
 upsert_env "CANVAS_LOCAL_SITE_URL"      "$SITE_URL"
 upsert_env "CANVAS_LOCAL_CLIENT_ID"     "$CLIENT_ID"
 upsert_env "CANVAS_LOCAL_CLIENT_SECRET" "$CLIENT_SECRET"
+upsert_env "CANVAS_LOCAL_JSONAPI_PREFIX" "$JSONAPI_PREFIX"
 
-echo "✓ Wrote CANVAS_LOCAL_* to storybook/.env"
+echo "✓ Updated CANVAS_LOCAL_* in storybook/.env (kept __keep__ values)"
 echo "✓ Canvas migration bootstrap complete."
 ```
 
-- [ ] **Step 2: Make the command discoverable + run it**
+- [ ] **Step 2: Make the command discoverable + run it (against weber2)**
 
 ```bash
-chmod +x commands/web/canvas-bootstrap
-# Copy into the live project's .ddev if testing against an installed project,
-# or rely on install.yaml (Task A4). For a quick test in an installed project:
+# The command is not yet installed via the addon. Test it by copying into weber2's .ddev:
+mkdir -p /Users/nickopris/Work/fg/migrations/weberfr/weber2/.ddev/commands/web
+cp commands/web/canvas-bootstrap /Users/nickopris/Work/fg/migrations/weberfr/weber2/.ddev/commands/web/canvas-bootstrap
+chmod +x /Users/nickopris/Work/fg/migrations/weberfr/weber2/.ddev/commands/web/canvas-bootstrap
+# Also ensure the bootstrap script copy from Task A2 is present in weber2.
+cd /Users/nickopris/Work/fg/migrations/weberfr/weber2
 ddev canvas-bootstrap
 ```
-Expected: `[bootstrap]` lines, then `✓ Wrote CANVAS_LOCAL_* to storybook/.env` and `✓ Canvas migration bootstrap complete.`
+Expected: `[bootstrap]` lines, a `(keeping existing CANVAS_LOCAL_CLIENT_SECRET)` line (reuse path), then `✓ Updated CANVAS_LOCAL_* ...` and `✓ Canvas migration bootstrap complete.`
 
-- [ ] **Step 3: Inspect `storybook/.env`**
+- [ ] **Step 3: Inspect `storybook/.env` — confirm working values preserved**
 
 ```bash
 ddev exec grep '^CANVAS_LOCAL_' /var/www/html/storybook/.env
 ```
-Expected three lines: `CANVAS_LOCAL_SITE_URL=...`, `CANVAS_LOCAL_CLIENT_ID=canvas_migration`, `CANVAS_LOCAL_CLIENT_SECRET=canvas-migration-...`.
+Expected: `CANVAS_LOCAL_SITE_URL=https://weber2.ddev.site`, the pre-existing `CANVAS_LOCAL_CLIENT_ID`/`CANVAS_LOCAL_CLIENT_SECRET` UNCHANGED, and `CANVAS_LOCAL_JSONAPI_PREFIX=jsonapi`.
 
 - [ ] **Step 4: Run again; verify no duplicate env lines**
 
@@ -311,7 +385,7 @@ Expected three lines: `CANVAS_LOCAL_SITE_URL=...`, `CANVAS_LOCAL_CLIENT_ID=canva
 ddev canvas-bootstrap
 ddev exec sh -c "grep -c '^CANVAS_LOCAL_CLIENT_ID=' /var/www/html/storybook/.env"
 ```
-Expected: prints `1` (upsert did not append a duplicate).
+Expected: prints `1` (upsert did not append a duplicate). Clean up test copies in weber2 afterward (`.ddev/commands/web/canvas-bootstrap` and `website-to-components/scripts/bootstrap-canvas.php` — both git-untracked there).
 
 - [ ] **Step 5: Commit**
 
