@@ -38,3 +38,70 @@ elseif ($page_type) {
 else {
   bootstrap_log('WARNING: page node type not found — skipping revisions.');
 }
+
+// 3. OAuth consumer: reuse or create.
+//
+// A consumer is "usable" iff it has the client_credentials grant AND an
+// assigned user. Scopes are NOT checked — they are validated at token time
+// against oauth2_scope entities, not stored on the consumer. Do NOT set
+// scopes or is_default on create.
+
+$is_usable = function ($consumer): bool {
+  $grants = array_column($consumer->get('grant_types')->getValue(), 'value');
+  if (!in_array('client_credentials', $grants, TRUE)) {
+    return FALSE;
+  }
+  $user_field = $consumer->get('user_id')->getValue();
+  return !empty($user_field);
+};
+
+$consumer_storage = \Drupal::entityTypeManager()->getStorage('consumer');
+$existing = $consumer_storage->loadMultiple();
+
+$usable = NULL;
+foreach ($existing as $c) {
+  if ($is_usable($c)) {
+    $usable = $c;
+    break;
+  }
+}
+
+$result_client_id     = '';
+$result_client_secret = '__keep__';
+
+if ($usable !== NULL) {
+  $result_client_id = $usable->get('client_id')->value;
+  bootstrap_log('Reusing existing usable consumer: ' . $result_client_id . ' (label: ' . $usable->label() . ')');
+}
+else {
+  // Create a new consumer. Generate a random plaintext secret, then save.
+  $plaintext_secret = bin2hex(random_bytes(24));
+  $new_consumer = $consumer_storage->create([
+    'client_id'   => 'canvas-ai-' . substr(bin2hex(random_bytes(3)), 0, 6),
+    'label'       => 'Canvas AI (bootstrap)',
+    'grant_types' => [['value' => 'client_credentials']],
+    'user_id'     => ['target_id' => 1],
+    'secret'      => $plaintext_secret,
+    'confidential' => TRUE,
+    'status'      => TRUE,
+  ]);
+  try {
+    $new_consumer->save();
+    $result_client_id     = $new_consumer->get('client_id')->value;
+    $result_client_secret = $plaintext_secret;
+    bootstrap_log('Created new consumer: ' . $result_client_id);
+  }
+  catch (EntityStorageException $e) {
+    bootstrap_log('ERROR: could not create consumer — ' . $e->getMessage());
+  }
+}
+
+// Emit the machine-readable result line consumed by ddev canvas-bootstrap (Task A3).
+$site_url = getenv('DDEV_PRIMARY_URL') ?: '__keep__';
+$result = json_encode([
+  'client_id'       => $result_client_id,
+  'client_secret'   => $result_client_secret,
+  'site_url'        => $site_url,
+  'jsonapi_prefix'  => 'jsonapi',
+]);
+fwrite(STDOUT, "[bootstrap-result] $result\n");
