@@ -91,7 +91,7 @@ Every **genuinely new** component built by this pipeline (one that survived the 
 
 **Rules:**
 - `machineName` in `component.yml`: `<3-letter-prefix>_<component_name>` (snake_case, e.g. `frg_primary_button`)
-- Component folder: matches `machineName` exactly (`canvas/src/components/frg_primary_button/`)
+- Component folder: matches `machineName` exactly (`storybook/src/components/frg_primary_button/`)
 - React component name in JSX: PascalCase with prefix (`FrgPrimaryButton`)
 - Import alias: `import FrgPrimaryButton from '@/components/frg_primary_button'`
 - Story title: `'<Site Name>/<Component Display Name>'` (e.g. `'FreelyGive/Primary Button'`)
@@ -102,7 +102,7 @@ Every **genuinely new** component built by this pipeline (one that survived the 
 
 ```
 /                                        ← project root (run all commands from here)
-├── canvas/                              ← Storybook + React components
+├── storybook/                           ← Storybook + React components
 │   ├── src/components/<name>/           ← built components (index.jsx + component.yml)
 │   ├── src/stories/components/          ← component stories
 │   ├── src/stories/pages/               ← page assembly stories
@@ -137,7 +137,7 @@ Step 0 — Sitemap       node website-to-components/jobs/00-sitemap.js <url> →
   Step 2b — Assets       (runs inside run.js)                       → output/<host>/<page-slug>/site-resources.json
   Step 2c — Resources    (runs inside run.js)                       → output/<host>/<page-slug>/resources/
   Step 3 — Detect        [PARALLEL vision subagents]                → output/<host>/<page-slug>/components.json
-  Step 3c — Fonts        [PARALLEL with Step 3] (ONLY ON FIRST PAGE)→ canvas/public/fonts/*.woff2
+  Step 3c — Fonts        [PARALLEL with Step 3] (ONLY ON FIRST PAGE)→ storybook/public/fonts/*.woff2
   Step 3d — Font gate    [MAIN AGENT, mandatory]                    → verify files + @font-face + @theme + computed styles
   Step 3d-css — global.css scaffold  node scripts/init-global-css.js
                           (MUST run once before Step 5 — bakes `@source inline(...)` so Tailwind works)
@@ -145,15 +145,15 @@ Step 0 — Sitemap       node website-to-components/jobs/00-sitemap.js <url> →
                           (writes image-tags.json — feeds Step 9 image picking) → output/<host>/image-tags.json
   Step 4 — Report        node scripts/finish.js <page-url>          → output/<host>/<page-slug>/report.md
   Step 4b — First-component smoke test (after the FIRST build subagent returns) — see Step 5a
-  Step 5 — Build         [PARALLEL subagents, cap 5 each]           → canvas/src/components/<name>/   (REUSE before creating)
+  Step 5 — Build         [PARALLEL subagents, cap 5 each]           → storybook/src/components/<name>/   (REUSE before creating)
   Step 5b — Validate     npx canvas validate --all && npx canvas build   (MANDATORY after every component touch)
   Step 6 — Compare       Start Storybook → screenshot page story → per-section pixel diff → fix
   Step 6c — Section diff node website-to-components/jobs/07-section-diff.js <page-url> <story-url> (MANDATORY gate)
   ──────────────────────────────────────────────────────────────────────────────
 
 Step 7 — Audit          node scripts/audit-content.js  (after all pages built)
-Step 8 — Stories        [PARALLEL subagents]            → canvas/src/stories/components/  (one story per unique component)
-Step 9 — Assemble       [PARALLEL subagents]            → canvas/src/stories/pages/       (one story per discovered page)
+Step 8 — Stories        [PARALLEL subagents]            → storybook/src/stories/components/  (one story per unique component)
+Step 9 — Assemble       [PARALLEL subagents]            → storybook/src/stories/pages/       (one story per discovered page)
 Step 10 — Link pages    Wire nav/footer linkTo() across all page stories
 Step 11 — Timing report node scripts/timings-report.js <url> → output/<host>/timings-report.md
 ```
@@ -624,7 +624,7 @@ node website-to-components/scripts/scan-dom-images.js "<url-with-trigger-param>"
 node website-to-components/scripts/scan-dom-images.js "https://example.com/?form=FUNJHNAUEXC"
 ```
 
-This merges any newly found images into `site-resources.json` and downloads them to `resources/images/` and `canvas/public/images/<site>/`. Always run this before building any component that uses a modal or widget — never guess or substitute a different image.
+This merges any newly found images into `site-resources.json` and downloads them to `resources/images/` and `storybook/public/images/<site>/`. Always run this before building any component that uses a modal or widget — never guess or substitute a different image.
 
 ---
 
@@ -685,7 +685,7 @@ EOF
 ```
 
 Use the output to:
-- Add missing `--color-*` tokens to `canvas/src/global.css` `@theme` for any text colors not already defined
+- Add missing `--color-*` tokens to `storybook/src/global.css` `@theme` for any text colors not already defined
 - Add `letter-spacing` as Tailwind arbitrary values or theme tokens where values differ from Tailwind defaults (e.g. `tracking-[0.15em]`)
 - Document per-element typography in `components.json` descriptions so components can reproduce exact styles
 
@@ -714,11 +714,11 @@ EOF
 ```
 Use `maxresdefault.jpg` (not `hqdefault.jpg`) — it loads from YouTube's image CDN without hotlink protection.
 
-**Copy downloaded images to canvas/public** — after downloading resources, copy all images to `canvas/public/images/<site-slug>/` so Storybook can serve them locally. This is mandatory — CDN hotlink protection will block images from loading in local dev otherwise.
+**Copy downloaded images to storybook/public** — after downloading resources, copy all images to `storybook/public/images/<site-slug>/` so Storybook can serve them locally. This is mandatory — CDN hotlink protection will block images from loading in local dev otherwise.
 
 ```bash
-mkdir -p canvas/public/images/<site-slug>
-cp website-to-components/output/<site-slug>/resources/images/* canvas/public/images/<site-slug>/
+mkdir -p storybook/public/images/<site-slug>
+cp website-to-components/output/<site-slug>/resources/images/* storybook/public/images/<site-slug>/
 ```
 
 Then use `/images/<site-slug>/<filename>` paths in all component and story `src` props — never raw CDN URLs in hardcoded component arrays or story args. CDN URLs are only acceptable in `component.yml` examples (for Canvas CMS deployment).
@@ -739,15 +739,15 @@ website-to-components/output/<site>/resources/
 website-to-components/output/<site>/resources-manifest.json
 ```
 
-**Copy fonts to canvas** — from the downloaded fonts folder, copy woff2 files to `canvas/public/fonts/`:
+**Copy fonts to canvas** — from the downloaded fonts folder, copy woff2 files to `storybook/public/fonts/`:
 
 ```bash
-cp website-to-components/output/<site>/resources/fonts/*.woff2 canvas/public/fonts/
+cp website-to-components/output/<site>/resources/fonts/*.woff2 storybook/public/fonts/
 ```
 
-**Replace `canvas/src/global.css` font declarations** — remove any Google Fonts `@import` and add `@font-face` blocks using `/fonts/<filename>.woff2` paths. Vite/Storybook serves `canvas/public/` at `/`.
+**Replace `storybook/src/global.css` font declarations** — remove any Google Fonts `@import` and add `@font-face` blocks using `/fonts/<filename>.woff2` paths. Vite/Storybook serves `storybook/public/` at `/`.
 
-**Update `@theme` tokens in `canvas/src/global.css`:**
+**Update `@theme` tokens in `storybook/src/global.css`:**
 - `--font-sans` → body/UI font (e.g. `"<Body Font Name>", Georgia, serif`)
 - `--font-heading` → display/heading font (e.g. `"<Display Font Name>", Georgia, serif`)
 - `--font-script` → script/cursive font if present
@@ -771,20 +771,20 @@ The font subagent in Step 3c runs in parallel and can fail silently — permissi
 **1. Check font files are present:**
 
 ```bash
-ls canvas/public/fonts/
+ls storybook/public/fonts/
 ```
 
 If empty or missing the expected woff2 files: the subagent failed. Run the font download manually:
 
 ```bash
 node website-to-components/jobs/03c-download-resources.js <url>
-cp website-to-components/output/<site>/resources/fonts/*.woff2 canvas/public/fonts/
+cp website-to-components/output/<site>/resources/fonts/*.woff2 storybook/public/fonts/
 ```
 
-**2. Check `canvas/src/global.css` has `@font-face` blocks:**
+**2. Check `storybook/src/global.css` has `@font-face` blocks:**
 
 ```bash
-grep "@font-face" canvas/src/global.css
+grep "@font-face" storybook/src/global.css
 ```
 
 If none: the subagent didn't write them. Add them manually — one block per font weight, using `/fonts/<filename>.woff2` paths.
@@ -792,7 +792,7 @@ If none: the subagent didn't write them. Add them manually — one block per fon
 **3. Check `@theme` tokens were updated:**
 
 ```bash
-grep "font-sans\|font-heading\|font-script" canvas/src/global.css
+grep "font-sans\|font-heading\|font-script" storybook/src/global.css
 ```
 
 `--font-sans` must name the body font. `--font-heading` must name the display font. If they still say defaults — update them now.
@@ -816,7 +816,7 @@ Cross-reference the output against your `@font-face` names and `@theme` tokens:
 
 ---
 
-### Step 3d-css — Scaffold canvas/src/global.css (MUST run once before Step 5)
+### Step 3d-css — Scaffold storybook/src/global.css (MUST run once before Step 5)
 
 `@tailwindcss/vite` under Storybook can silently fail to scan component JSX, leaving every utility class unstyled at runtime. The scaffolder bakes a `@source inline(...)` safelist into `global.css` that guarantees the standard pipeline output renders even if scanning misses files.
 
@@ -831,14 +831,14 @@ Flags:
 - `--brand name=#hex` (repeatable) — adds or overrides a brand color token. The default palette ships with neutral defaults so a missing `--brand` flag still produces a working file.
 - `--font-sans <family>`, `--font-heading <family>` — set the body and heading font families.
 - `--no-fonts` — skip `@font-face` blocks (e.g. when you use Google Fonts via `@import`).
-- `--fonts-dir <path>` — override the woff2 scan directory (default `canvas/public/fonts`).
+- `--fonts-dir <path>` — override the woff2 scan directory (default `storybook/public/fonts`).
 - `--force` — overwrite an existing `global.css`.
 
 After running, the file will contain:
 - `@import "tailwindcss";`
 - `@source "./components"; @source "./stories";`
 - `@source inline("flex grid bg-brand-red ...")` — universal utility safelist
-- `@font-face` blocks for every `.woff2` discovered in `canvas/public/fonts/`
+- `@font-face` blocks for every `.woff2` discovered in `storybook/public/fonts/`
 - `@theme { --color-brand-* ... }` from your flags
 - `@layer base` mapping body → sans, headings → heading-font
 
@@ -909,7 +909,7 @@ Do NOT spawn the remaining build subagents until the smoke test passes. The cost
 
 **Parallelisation strategy — overlap Step 5 composites with Step 9 page stories:**
 
-The 2026-05-23 measurement showed Step 5 (build) at 79.2m vs Step 9 (page stories) at 15.7m, run strictly serially: 79 + 16 = ~95m sequential cost. The two phases share no files (Step 5 writes `canvas/src/components/`, Step 9 writes `canvas/src/stories/pages/`) so they can run in parallel once their preconditions are met:
+The 2026-05-23 measurement showed Step 5 (build) at 79.2m vs Step 9 (page stories) at 15.7m, run strictly serially: 79 + 16 = ~95m sequential cost. The two phases share no files (Step 5 writes `storybook/src/components/`, Step 9 writes `storybook/src/stories/pages/`) so they can run in parallel once their preconditions are met:
 
 ```
 Phase A — Vision                                  Phase B — Atoms                Phase C — Composites + Page stories in parallel
@@ -994,10 +994,10 @@ If `wall_clock_estimate_seconds > 480` (8 min), rebalance. The largest single gr
 | **Listing grids** (composite) | Stories grid, News grid, Events grid, location list | composite | 3 |
 | **Specialized organisms** (composite) | FAQ accordion (imports FAQ item), Events header (imports primary button), Volunteer form (imports primary button) | composite | 3 |
 
-Wait for the design-tokens update to land in `canvas/src/global.css` before any section subagent starts (token changes are cheap and serial). After that, **launch atom subagents first, then composite subagents** — atoms must land before composite imports resolve.
+Wait for the design-tokens update to land in `storybook/src/global.css` before any section subagent starts (token changes are cheap and serial). After that, **launch atom subagents first, then composite subagents** — atoms must land before composite imports resolve.
 
 **Subagent prompt template:**
-> "Build these React components for `<site>`. Components: [list]. components.json: `website-to-components/output/<site>/components.json`. Section images: `website-to-components/output/<site>/sections/`. Target: `canvas/src/components/`. Read `canvas/src/global.css` first — add any missing design tokens before building. Follow the component-authoring skill. Each component needs `index.jsx` + `component.yml`. **For every component, FIRST run `node /var/www/html/website-to-components/scripts/init-component.js <machine_name> --display '<Display Name>' --prop ... --import ...` to scaffold a validated `component.yml` + `index.jsx`. Then edit only the JSX body to match the source section. This skips writing the YAML and the import block by hand — both of which produce ~30% of the per-component retries.** READ the "Canvas validator rules you WILL hit" cheat sheet below — it documents the errors `init-component.js` already avoids and the ones you may still hit when editing the JSX body."
+> "Build these React components for `<site>`. Components: [list]. components.json: `website-to-components/output/<site>/components.json`. Section images: `website-to-components/output/<site>/sections/`. Target: `storybook/src/components/`. Read `storybook/src/global.css` first — add any missing design tokens before building. Follow the component-authoring skill. Each component needs `index.jsx` + `component.yml`. **For every component, FIRST run `node /var/www/html/website-to-components/scripts/init-component.js <machine_name> --display '<Display Name>' --prop ... --import ...` to scaffold a validated `component.yml` + `index.jsx`. Then edit only the JSX body to match the source section. This skips writing the YAML and the import block by hand — both of which produce ~30% of the per-component retries.** READ the "Canvas validator rules you WILL hit" cheat sheet below — it documents the errors `init-component.js` already avoids and the ones you may still hit when editing the JSX body."
 
 #### Using `init-component.js` (highly recommended)
 
@@ -1150,7 +1150,7 @@ Drupal Canvas sometimes hands components `{value, format}` for rich text and `{u
 #### Per-component build checklist (each subagent must follow)
 
 1. **Re-read the source section image** with the `Read` tool — do not rely on descriptions alone.
-2. **Extract design tokens** — add missing colors/fonts to `canvas/src/global.css` `@theme` before writing the component.
+2. **Extract design tokens** — add missing colors/fonts to `storybook/src/global.css` `@theme` before writing the component.
 3. **Map description → props** — each content area becomes a prop. **Canvas schema rules (these are hard requirements — Source rejects components that violate them):**
    - **Text/heading** → `type: string`
    - **Rich text** → `type: string`, `contentMediaType: text/html`
@@ -1171,7 +1171,7 @@ Drupal Canvas sometimes hands components `{value, format}` for rich text and `{u
 7. **Invoke the `component-authoring` skill** for `index.jsx`, `component.yml`, CVA variants.
 8. **Validate before declaring done.** After writing each component:
    ```bash
-   cd canvas && npx canvas validate --components <comp_name> --deprecated 2>&1 | head -20
+   cd storybook && npx canvas validate --components <comp_name> --deprecated 2>&1 | head -20
    ```
    Fix every reported error, not just structural ones. The `Failed` rows in the validator's table are the same checks Source applies on upload — passing them locally guarantees the upload will succeed. **If you hit a validator error, look up the fix in the "Canvas validator rules you WILL hit" cheat sheet above — every common error has a documented fix there.**
 6. **Component-reuse check** — before importing an existing component (e.g. `Logo`, `Button`, `Card`), open the source section and the section where the original was built side-by-side. If the visual appearance differs — size, layout, icon-only vs lockup, stacked vs horizontal, colour treatment — **do not reuse**. Build a variant (new component, or a size/variant prop on the existing one). The most common offender is the logo: navbar logos are usually horizontal lockups, while footer logos are usually larger standalone icons with a stacked wordmark beside them. Treat them as distinct components by default.
@@ -1186,10 +1186,10 @@ Canvas ships two CLIs that catch component-level mistakes before they reach Stor
 
 ```bash
 # Lint — catches wrong imports, missing props, machine-name conventions, slot mistakes
-cd canvas && npx canvas validate --all
+cd storybook && npx canvas validate --all
 
 # Build — runs the actual component bundler + Tailwind. Fails on syntax errors and bad refs.
-cd canvas && npx canvas build
+cd storybook && npx canvas build
 ```
 
 Run both after every component touch. Address every reported failure before moving on. Common failures:
@@ -1198,12 +1198,12 @@ Run both after every component touch. Address every reported failure before movi
 - `'drupal-canvas/component-imports': Use the @/components alias for sub-component imports.` → switch a relative import like `import <SitePrefix>Foo from '../<site_prefix>_foo/index.jsx'` to `import <SitePrefix>Foo from '@/components/<site_prefix>_foo'` (no `/index.jsx` suffix).
 - `Prop machine name "X" should be the camelCase version of its title.` → either rename the prop machineName in `component.yml` to match the title, or rename the title. Canvas requires the two to align.
 - `Component not registered / unknown component`. → folder name must equal the `machineName` in `component.yml` (snake_case). If you renamed a folder, the `@source` directives in `global.css` need to update too.
-- Tailwind classes missing in build output. → `@source` in `canvas/src/global.css` must point at the component file. New components need a new `@source` line (or a glob that covers them).
+- Tailwind classes missing in build output. → `@source` in `storybook/src/global.css` must point at the component file. New components need a new `@source` line (or a glob that covers them).
 
 To auto-fix simple issues:
 
 ```bash
-cd canvas && npx canvas validate --all --fix
+cd storybook && npx canvas validate --all --fix
 ```
 
 **Do not proceed to Step 6 until `canvas validate --all` and `canvas build` both succeed cleanly.** Catching these here is far cheaper than discovering them later when ten components are broken at once.
@@ -1326,10 +1326,10 @@ Use the tracker before and after each edit:
 
 ```bash
 # BEFORE editing — exits 1 if cap reached, agent must skip the file
-node website-to-components/scripts/edit-budget.js check canvas/src/components/<site_prefix>_navbar/index.jsx
+node website-to-components/scripts/edit-budget.js check storybook/src/components/<site_prefix>_navbar/index.jsx
 
 # AFTER a successful edit — increment the counter
-node website-to-components/scripts/edit-budget.js bump canvas/src/components/<site_prefix>_navbar/index.jsx <agent-name>
+node website-to-components/scripts/edit-budget.js bump storybook/src/components/<site_prefix>_navbar/index.jsx <agent-name>
 
 # Anytime — see the full ledger
 node website-to-components/scripts/edit-budget.js report
@@ -1338,7 +1338,7 @@ node website-to-components/scripts/edit-budget.js report
 node website-to-components/scripts/edit-budget.js reset
 ```
 
-The ledger lives at `canvas/.edit-budget.json` and is shared across all subagents in the same run. **Spawn every fidelity subagent with the instruction: "Before each Edit/Write, run `edit-budget check <path>`. If it exits non-zero, skip that file. After every successful Edit/Write, run `edit-budget bump <path> <your-agent-name>`."**
+The ledger lives at `storybook/.edit-budget.json` and is shared across all subagents in the same run. **Spawn every fidelity subagent with the instruction: "Before each Edit/Write, run `edit-budget check <path>`. If it exits non-zero, skip that file. After every successful Edit/Write, run `edit-budget bump <path> <your-agent-name>`."**
 
 This cap exists because pixel-diff iteration has rapidly diminishing returns past round 3 — most remaining diff is image-content variance, not a fixable structural issue, and further edits often regress other sections.
 
@@ -1346,13 +1346,13 @@ This cap exists because pixel-diff iteration has rapidly diminishing returns pas
 
 ### `canvas download` is destructive — never run it casually
 
-`npx canvas download` and `npx canvas pull` SILENTLY OVERWRITE every file under `canvas/src/components/` with whatever is on Source. If a Source-side `<site_prefix>_navbar` exists with an older schema, your local newer version is gone — and unless you've committed to git, there is no recovery.
+`npx canvas download` and `npx canvas pull` SILENTLY OVERWRITE every file under `storybook/src/components/` with whatever is on Source. If a Source-side `<site_prefix>_navbar` exists with an older schema, your local newer version is gone — and unless you've committed to git, there is no recovery.
 
 **Rules:**
 
-- **Before any download/pull,** confirm `git status` shows component files are tracked + committed, or copy `canvas/src/components/` to a temp dir.
+- **Before any download/pull,** confirm `git status` shows component files are tracked + committed, or copy `storybook/src/components/` to a temp dir.
 - **Never run download to "see what's on Source."** Use the JSON:API root (`/<prefix>` or the `canvas push` plan output) to inspect. Canvas push prints a Create/Update/Delete table BEFORE acting — that's the safe way to compare.
-- **Add `canvas/src/components/` to git** at the start of any clone project. Each component build subagent's output should be committable so a download wipe is recoverable.
+- **Add `storybook/src/components/` to git** at the start of any clone project. Each component build subagent's output should be committable so a download wipe is recoverable.
 - **The upload command (`canvas upload`) is additive** — it does not delete or rename. Use it for incremental fixes. `canvas push` is the destructive sync command — pushes new + deletes old. Reach for `upload` first.
 
 ### Step 7 — Run the content audit (MANDATORY GATES)
@@ -1388,7 +1388,7 @@ node website-to-components/scripts/audit-section-descriptions.js
 node website-to-components/scripts/audit-heroes.js
 
 # 6. Canvas validate over the whole component set
-cd canvas && npx canvas validate --all
+cd storybook && npx canvas validate --all
 ```
 
 The image/alt audit flags two patterns:
@@ -1403,10 +1403,10 @@ Fix all failures by either (a) picking a file whose name matches the subject, (b
 
 **Spawn parallel subagents** — batch components into groups of 5–8. All subagents run simultaneously.
 
-Write a Storybook story for every built component under `canvas/src/stories/components/`.
+Write a Storybook story for every built component under `storybook/src/stories/components/`.
 
 **Rules:**
-- File: `canvas/src/stories/components/<SitePrefix><ComponentName>.stories.jsx`
+- File: `storybook/src/stories/components/<SitePrefix><ComponentName>.stories.jsx`
 - `// @ts-nocheck` + `import React from 'react'` at the top
 - Story title: `'<Site Display Name>/<ComponentDisplayName>'`
 - `args` use real site content — re-read source section images from `website-to-components/output/<site>/sections/` before writing hero/banner props
@@ -1416,18 +1416,18 @@ Write a Storybook story for every built component under `canvas/src/stories/comp
 
 ### Step 9 — Assemble pages (parallel subagents) — can run IN PARALLEL with Step 5 composites
 
-**Important — start as early as possible:** After Step 5's *atom* subagents have all returned (and atoms are present in `canvas/src/components/`), spawn Step 9 page-story subagents in parallel with Step 5's composite subagents. They share no files. The page-story subagents write JSX text whose imports will resolve once the composite subagents land; Storybook is only smoke-tested AFTER both finish. This overlap was measured to save ~10–15m of wall clock on a 16-page site.
+**Important — start as early as possible:** After Step 5's *atom* subagents have all returned (and atoms are present in `storybook/src/components/`), spawn Step 9 page-story subagents in parallel with Step 5's composite subagents. They share no files. The page-story subagents write JSX text whose imports will resolve once the composite subagents land; Storybook is only smoke-tested AFTER both finish. This overlap was measured to save ~10–15m of wall clock on a 16-page site.
 
 If you're orchestrating manually, the readiness check is:
 ```bash
 node website-to-components/scripts/page-readiness.js <page-url>
 ```
-It prints which components a page references and which are already present in `canvas/src/components/`. A page is ready for its Step 9 subagent when every *atom* it needs exists. Composites can still be in flight.
+It prints which components a page references and which are already present in `storybook/src/components/`. A page is ready for its Step 9 subagent when every *atom* it needs exists. Composites can still be in flight.
 
 **Spawn one subagent per page, all in parallel.**
 
 **Rules:**
-- File: `canvas/src/stories/pages/<SiteName><PageName>.stories.jsx`
+- File: `storybook/src/stories/pages/<SiteName><PageName>.stories.jsx`
 - Story title: `'Pages/<Site Name> — <Page Name>'`
 - Renders all section components in correct top-to-bottom order
 - Props use real site content — re-read source section images before writing
@@ -1501,7 +1501,7 @@ If any one of those three fails, the audits flag it. This pattern recurs on any 
 
 #### Image-selection guardrails (UNIVERSAL — applies whenever a component or story picks an `<img>` src)
 
-The shared asset pool at `canvas/public/images/<host>/` is the **union of every image scraped across the whole site**. It is *not* curated to match every subject a page mentions. When a subagent writes alt text faster than it verifies the image, you end up with mismatches like an event-action photo captioned as "portrait of <named person>". Apply these rules in order:
+The shared asset pool at `storybook/public/images/<host>/` is the **union of every image scraped across the whole site**. It is *not* curated to match every subject a page mentions. When a subagent writes alt text faster than it verifies the image, you end up with mismatches like an event-action photo captioned as "portrait of <named person>". Apply these rules in order:
 
 1. **Prefer the source page's own asset list.** Every cloned page has its own `output/<host>/<page-slug>/site-resources.json` listing only the images that page used. Read it first. Picking from a different page's pool is a red flag.
 
@@ -1540,7 +1540,7 @@ Add this to the post-build content audit so mismatches surface automatically: gr
 
 Heroes are the most-screenshot-compared element on every page and the regression that loudest readers notice first. The combination of vision-step misclassification, fabricated copy, and renamed assets makes them especially fragile. Treat them as a separate authoring contract:
 
-1. **Hero asset must trace to `site-resources.json`.** Before passing `imageSrc`, `posterSrc`, or `videoSrc` to any hero, find a matching entry in the page's own `site-resources.json` — under `videos[]` (for video heroes), `backgroundImages[]` (Elementor-style sites store hero photos as CSS `background-image` on `e-con-full`/`e-flex` containers), or `images[]`. Use the *captured* filename (or download the captured URL into `canvas/public/images/<host>/` keeping its slug). Never rename to a "cleaner" name like `Tickets-1.webp`, `Park-Zones.webp`, `plan-your-visit-1.webp` — the rename severs the audit trail and the resolver tags it as fabricated.
+1. **Hero asset must trace to `site-resources.json`.** Before passing `imageSrc`, `posterSrc`, or `videoSrc` to any hero, find a matching entry in the page's own `site-resources.json` — under `videos[]` (for video heroes), `backgroundImages[]` (Elementor-style sites store hero photos as CSS `background-image` on `e-con-full`/`e-flex` containers), or `images[]`. Use the *captured* filename (or download the captured URL into `storybook/public/images/<host>/` keeping its slug). Never rename to a "cleaner" name like `Tickets-1.webp`, `Park-Zones.webp`, `plan-your-visit-1.webp` — the rename severs the audit trail and the resolver tags it as fabricated.
 
 2. **Video heroes are video-first.** If `site-resources.json.videos[]` has any entry whose `containerSelector` is at the top of the DOM (Swiper/Elementor hero band, lazy-loaded `<video>` directly under the navbar), the hero MUST pass `videoSrc` (or `videoUrl`) — even if the captured screenshot only shows the poster frame. The poster goes to `posterSrc`; the video src goes to `videoSrc`.
 
@@ -1599,12 +1599,12 @@ The homepage uses `<page-slug>` = `home` and is placed directly under `output/<h
 | `website-to-components/output/<host>/<page-slug>/resources/images/` | Downloaded image files for this page |
 | `website-to-components/output/<host>/<page-slug>/resources/fonts/` | Downloaded font files (extracted once on the first page) |
 | `website-to-components/output/<host>/<page-slug>/report.md` | Human-readable component breakdown for the page |
-| `canvas/src/global.css` | Design tokens + @font-face declarations (shared across all pages) |
-| `canvas/public/fonts/*.woff2` | Site fonts served by Storybook |
-| `canvas/public/images/<host>/` | Site images served by Storybook (merged across pages) |
-| `canvas/src/components/<name>/` | Built components (index.jsx + component.yml) — shared across pages |
-| `canvas/src/stories/components/` | One Storybook story per unique component |
-| `canvas/src/stories/pages/` | One Storybook page-assembly story per discovered page |
+| `storybook/src/global.css` | Design tokens + @font-face declarations (shared across all pages) |
+| `storybook/public/fonts/*.woff2` | Site fonts served by Storybook |
+| `storybook/public/images/<host>/` | Site images served by Storybook (merged across pages) |
+| `storybook/src/components/<name>/` | Built components (index.jsx + component.yml) — shared across pages |
+| `storybook/src/stories/components/` | One Storybook story per unique component |
+| `storybook/src/stories/pages/` | One Storybook page-assembly story per discovered page |
 
 ## Example Usage
 
@@ -1618,11 +1618,11 @@ The agent executes the **multi-page pipeline** end-to-end without pausing for us
 2. **Sanity-check the sitemap** — read `sitemap.json`, drop any obvious noise rows, confirm the homepage is present
 3. **For each page** (homepage first):
    - **[Parallel]** Spawn 1 vision subagent per page — reads the full-page screenshot, detects section boundaries using AI vision (content structure, background changes, whitespace, component roles), crops sections precisely, identifies components, writes `components.json`
-   - **[Parallel — first page only]** Spawn 1 font subagent to download fonts + update `canvas/src/global.css`
+   - **[Parallel — first page only]** Spawn 1 font subagent to download fonts + update `storybook/src/global.css`
    - Run `node scripts/finish.js <page-url>` → per-page report
    - **[Subagent 1]** Build shared components (tokens, Navbar, Footer, atoms) — only on the first page; **reuse existing components on later pages, but apply the component-reuse check from Step 5 (especially for logos)**
    - **[Subagents 2–N in parallel]** Build the page-unique section components
-   - **After every component create/update**: run `cd canvas && npx canvas validate --all && npx canvas build`. Fix any failure before moving on.
+   - **After every component create/update**: run `cd storybook && npx canvas validate --all && npx canvas build`. Fix any failure before moving on.
    - Start/keep Storybook running → open that page's story → screenshot → run `jobs/07-section-diff.js` → inspect every failing section's diff PNG → fix → repeat until all sections pass the threshold
 4. After all pages built: run `node website-to-components/scripts/audit-content.js` → fix failures
 5. **[Parallel subagents]** Write component stories in batches of 5–8 (every unique component)
@@ -1631,11 +1631,11 @@ The agent executes the **multi-page pipeline** end-to-end without pausing for us
 
 **The pipeline is complete only when ALL of the following are true — check each explicitly before declaring done:**
 
-- [ ] Every component in `components.json` has been built (`canvas/src/components/<prefix>_<name>/index.jsx` + `component.yml` exist)
-- [ ] `cd canvas && npx canvas validate --all` passes with no errors
-- [ ] `cd canvas && npx canvas build` passes
-- [ ] **Every unique component has a Storybook story** under `canvas/src/stories/components/` (Step 8 — one `.stories.jsx` per component)
-- [ ] **Every page in `sitemap.json` has a Storybook page story** under `canvas/src/stories/pages/` (Step 9 — one `.stories.jsx` per page)
+- [ ] Every component in `components.json` has been built (`storybook/src/components/<prefix>_<name>/index.jsx` + `component.yml` exist)
+- [ ] `cd storybook && npx canvas validate --all` passes with no errors
+- [ ] `cd storybook && npx canvas build` passes
+- [ ] **Every unique component has a Storybook story** under `storybook/src/stories/components/` (Step 8 — one `.stories.jsx` per component)
+- [ ] **Every page in `sitemap.json` has a Storybook page story** under `storybook/src/stories/pages/` (Step 9 — one `.stories.jsx` per page)
 - [ ] Visual comparison passes for every page (`07-section-diff.js` exits 0)
 - [ ] `audit-content.js` passes
 - [ ] Clicking any nav link in any page story navigates to another built page story (Step 10)

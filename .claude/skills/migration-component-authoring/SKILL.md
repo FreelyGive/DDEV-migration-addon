@@ -116,7 +116,7 @@ and produce components that can never use the design system. Fix the config firs
    });
    ```
 
-2. `canvas/src/global.css` — must have an `@source` directive so Tailwind scans
+2. `storybook/src/global.css` — must have an `@source` directive so Tailwind scans
    component files:
    ```css
    @import 'tailwindcss';
