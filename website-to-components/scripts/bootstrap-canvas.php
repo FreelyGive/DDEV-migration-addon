@@ -92,7 +92,11 @@ else {
     bootstrap_log('Created new consumer: ' . $result_client_id);
   }
   catch (EntityStorageException $e) {
+    // Fail loudly: do NOT fall through to emit a [bootstrap-result] line, or
+    // the caller (ddev canvas-bootstrap) would treat a failed create as success
+    // and write an empty client_id into .env. Exit non-zero instead.
     bootstrap_log('ERROR: could not create consumer — ' . $e->getMessage());
+    exit(1);
   }
 }
 
