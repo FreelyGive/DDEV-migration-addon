@@ -5,27 +5,25 @@
 
 import { discoverSiteUrls } from "../jobs/00b-sitemap-xml.js";
 
-export async function resolveDiscovery({ scope, origin, fetchXml, listMenuPages, homepageUrl, log, seoSitemap }) {
+export async function resolveDiscovery({ scope, origin, fetchXml, listMenuPages, homepageUrl, log, validateUrls }) {
   if (scope === "homepage") {
     return { pages: [homepageUrl], source: "homepage" };
   }
   if (scope === "menus") {
     return { pages: await listMenuPages(), source: "menus" };
   }
-  // scope === "site": prefer seo-sitemap when available and returns urls.
-  // Wrapped in try/catch so a throwing runner (e.g. the real claude-seo CLI
-  // erroring) degrades to the fallback chain instead of aborting the whole run.
-  if (seoSitemap) {
+  // scope === "site": discover via sitemap.xml → robots → menu fallback (unchanged).
+  const result = await discoverSiteUrls({ origin, fetchXml, listMenuPages, log });
+  // If we got a sitemap (not menu fallback) and a validateUrls fn is provided,
+  // post-filter the URL list over HTTP (drops redirected/noindex/non-canonical).
+  // Wrapped in try/catch: a throwing validateUrls must NOT abort the run.
+  if (validateUrls && result.source === "sitemap") {
     try {
-      const seo = await seoSitemap();
-      if (seo && seo.source === "seo-sitemap" && seo.urls.length > 0) {
-        return { pages: seo.urls, source: "seo-sitemap" };
-      }
+      const validated = await validateUrls(result.urls);
+      return { pages: validated, source: "sitemap-validated" };
     } catch (e) {
-      log("claude-seo discovery failed (" + e.message + "); falling back to sitemap.xml / menus.");
+      log("validateUrls failed (" + e.message + "); using unvalidated sitemap URLs.");
     }
   }
-  // fall back to raw sitemap.xml parse → robots → menu-reachable
-  const result = await discoverSiteUrls({ origin, fetchXml, listMenuPages, log });
   return { pages: result.urls, source: result.source };
 }

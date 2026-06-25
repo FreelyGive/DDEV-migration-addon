@@ -1,9 +1,9 @@
 // website-to-components/jobs/00b-sitemap-xml.js
 //
-// Whole-site discovery. Real sitemap retrieval + HTTP-200 validation is
-// delegated to the claude-seo `seo-sitemap` skill (Mode 1) at the call site;
-// this module owns parsing and the menu-reachable fallback so it stays
-// unit-testable without network access.
+// Whole-site discovery. Sitemap parsing and menu-reachable fallback.
+// HTTP-200/canonical/noindex validation is handled by validateSitemapUrls
+// (lib/seo-sitemap.js) at the call site, keeping this module unit-testable
+// without network access.
 
 export function parseSitemapXml(xml) {
   if (!xml) return [];

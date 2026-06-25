@@ -11,7 +11,7 @@ import { run as generateBrandKit } from "../jobs/03d-generate-brand-kit.js";
 import { siteSlug, sitePaths, cleanPage } from "../lib/paths.js";
 import { resolveScope } from "../lib/scope.js";
 import { resolveDiscovery } from "../lib/discovery.js";
-import { discoverWithSeoSitemap, defaultSeoSitemapRunner } from "../lib/seo-sitemap.js";
+import { validateSitemapUrls } from "../lib/seo-sitemap.js";
 import { run as discoverSitemapMenus } from "../jobs/00-sitemap.js";
 import { normalizeMenus } from "../lib/menu.js";
 
@@ -76,7 +76,6 @@ await generateBrandKit(url);
 const meta = JSON.parse(readFileSync(sitePaths(url).metaPath, "utf8"));
 meta.scope = scope;
 const origin = new URL(url).origin;
-const seoRunner = scope === "site" ? defaultSeoSitemapRunner() : null;
 const discovery = await resolveDiscovery({
   scope,
   origin,
@@ -92,8 +91,8 @@ const discovery = await resolveDiscovery({
     return (sm.pages || []).map(pg => pg.url);
   },
   log: (m) => console.log(m),
-  seoSitemap: seoRunner
-    ? () => discoverWithSeoSitemap({ origin, ...seoRunner, log: (m) => console.log(m) })
+  validateUrls: scope === "site"
+    ? (urls) => validateSitemapUrls(urls, { fetchImpl: fetch, log: (m) => console.log(m) })
     : undefined,
 });
 meta.discovery = { source: discovery.source, pages: discovery.pages };

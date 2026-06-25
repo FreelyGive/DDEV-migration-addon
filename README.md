@@ -19,24 +19,20 @@ Adds the [Canvas Storybook AI](https://canvas.drupalstarforge.ai) website-to-com
 - Docker
 - Claude Code authenticated (`ddev claude` once, or `claude` on host)
 
-### Optional: whole-site scope and claude-seo
+### Whole-site scope
 
-`ddev clone <url> --scope site` discovers pages via the
-[claude-seo](https://github.com/AgricIDaniel/claude-seo) plugin's `seo-sitemap`
-skill in Mode 1 ("Analyze Existing Sitemap"): it locates `sitemap.xml` (with
-`sitemap_index.xml` and `robots.txt` fallbacks), validates each URL returns
-HTTP 200, and drops noindex / redirected / non-canonical URLs.
+`ddev clone <url> --scope site` discovers pages automatically — no external
+dependency required:
 
-Install it first (Python 3.10+, optional Playwright):
+1. Reads `sitemap.xml` (with `sitemap_index.xml` and `robots.txt` fallbacks).
+2. Validates each URL over HTTP: keeps only URLs that return HTTP 200, did not
+   redirect, are not marked `noindex` (via `X-Robots-Tag` header or
+   `<meta name="robots">` tag), and whose `<link rel="canonical">` (if present)
+   points to themselves.
+3. Falls back to menu-reachable discovery if no sitemap is found.
 
-```bash
-/plugin marketplace add AgricIDaniel/claude-seo
-/plugin install
-```
-
-If claude-seo is not installed (or returns no URLs), `--scope site` falls back to
-raw `sitemap.xml` parsing, and then to menu-reachable discovery (with a warning).
 Menus are always derived from on-page navigation, never from the sitemap.
+No claude-seo plugin or Python runtime required.
 
 ## Installation
 

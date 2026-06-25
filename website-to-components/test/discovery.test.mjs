@@ -40,25 +40,38 @@ test("site scope with no sitemap falls back to menus", async () => {
   assert.equal(res.pages.length, 2);
 });
 
-test("site scope prefers seo-sitemap when it returns urls", async () => {
-  const seoSitemap = async () => ({ source: "seo-sitemap", urls: ["https://x.com/", "https://x.com/blog"] });
-  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
-  assert.equal(res.source, "seo-sitemap");
-  assert.deepEqual(res.pages, ["https://x.com/", "https://x.com/blog"]);
+test("site scope prefers validateUrls result when sitemap is present", async () => {
+  const validateUrls = async (urls) => urls.filter(u => u.includes("/a"));
+  const res = await resolveDiscovery({
+    ...common,
+    scope: "site",
+    fetchXml: async (p) => p === "/sitemap.xml" ? `<urlset><url><loc>https://x.com/a</loc></url><url><loc>https://x.com/b</loc></url></urlset>` : null,
+    validateUrls,
+  });
+  assert.equal(res.source, "sitemap-validated");
+  assert.deepEqual(res.pages, ["https://x.com/a"]);
 });
 
-test("site scope falls back to discoverSiteUrls when seoSitemap returns unavailable", async () => {
-  const seoSitemap = async () => ({ source: "unavailable", urls: [] });
-  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
+test("site scope skips validateUrls when source is menus (no sitemap found)", async () => {
+  // fetchXml returns null → source will be "menus"; validateUrls must NOT be called
+  let called = false;
+  const validateUrls = async (urls) => { called = true; return urls; };
+  const res = await resolveDiscovery({ ...common, scope: "site", validateUrls });
   // fetchXml returns null so discoverSiteUrls falls back to menus
   assert.equal(res.source, "menus");
   assert.equal(res.pages.length, 2);
+  assert.equal(called, false);
 });
 
-test("site scope falls back gracefully when seoSitemap throws (does not abort the run)", async () => {
-  const seoSitemap = async () => { throw new Error("claude-seo CLI boom"); };
-  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
-  // The throw must be caught and discovery must still resolve via the fallback chain.
-  assert.equal(res.source, "menus");
-  assert.equal(res.pages.length, 2);
+test("site scope falls back gracefully when validateUrls throws (does not abort the run)", async () => {
+  const validateUrls = async () => { throw new Error("network boom"); };
+  const res = await resolveDiscovery({
+    ...common,
+    scope: "site",
+    fetchXml: async (p) => p === "/sitemap.xml" ? `<urlset><url><loc>https://x.com/a</loc></url></urlset>` : null,
+    validateUrls,
+  });
+  // The throw must be caught and discovery must still resolve via unvalidated sitemap URLs.
+  assert.equal(res.source, "sitemap");
+  assert.deepEqual(res.pages, ["https://x.com/a"]);
 });

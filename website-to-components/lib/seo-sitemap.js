@@ -1,12 +1,8 @@
-import { spawn } from "node:child_process";
-
 // website-to-components/lib/seo-sitemap.js
 //
-// Whole-site URL discovery via the claude-seo `seo-sitemap` skill (Mode 1:
-// "Analyze Existing Sitemap"). The skill locates sitemap.xml (with robots.txt
-// and sitemap-index fallbacks), 200-checks each URL, and drops noindex /
-// redirected / non-canonical URLs. This module owns invocation + parsing; all
-// I/O is injected so the parser is unit-testable without the skill installed.
+// Sitemap URL utilities: parse text output for same-origin URLs, and
+// validate a list of sitemap URLs over HTTP (200/canonical/noindex checks).
+// All I/O is injected so the module is unit-testable without network.
 
 export function parseSeoSitemapOutput(text, origin) {
   if (!text) return [];
@@ -28,57 +24,44 @@ export function parseSeoSitemapOutput(text, origin) {
   return out;
 }
 
-export async function discoverWithSeoSitemap({ origin, runSkill, isInstalled, log }) {
-  if (!(await isInstalled())) {
-    log("claude-seo seo-sitemap skill not installed. Install: /plugin marketplace add AgricIDaniel/claude-seo. Falling back to menu-reachable discovery.");
-    return { source: "unavailable", urls: [] };
+// Validate a list of sitemap URLs over HTTP. Pure: fetchImpl injected.
+// fetchImpl(url, {redirect:"manual"}) must resolve to an object shaped like the
+// global fetch Response: { status, url (final url), headers: {get(name)}, text() }.
+// Keeps only URLs that: respond 200, did NOT redirect (final url === requested),
+// are not noindex (X-Robots-Tag header or <meta name=robots ... noindex>),
+// and whose <link rel=canonical> (if present) points to themselves.
+// Returns the surviving URLs in input order. Network errors drop that URL.
+export async function validateSitemapUrls(urls, { fetchImpl, log = () => {}, concurrency = 6 }) {
+  const f = fetchImpl || globalThis.fetch;
+  // simple bounded-concurrency map preserving input order
+  let i = 0;
+  const results = new Array(urls.length);
+  async function worker() {
+    while (i < urls.length) {
+      const idx = i++; const url = urls[idx];
+      results[idx] = await checkOne(f, url, log);
+    }
   }
-  const raw = await runSkill(origin);
-  const urls = parseSeoSitemapOutput(raw, origin);
-  return { source: "seo-sitemap", urls };
+  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, worker));
+  const keep = [];
+  for (let k = 0; k < urls.length; k++) if (results[k]) keep.push(urls[k]);
+  return keep;
 }
 
-function nodeExec(cmd, args) {
-  return new Promise((resolve) => {
-    const child = spawn(cmd, args, { encoding: "utf8" });
-    let stdout = "", stderr = "";
-    child.stdout?.on("data", (d) => { stdout += d; });
-    child.stderr?.on("data", (d) => { stderr += d; });
-    child.on("error", () => resolve({ code: 1, stdout, stderr: stderr || "spawn error" }));
-    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
-  });
-}
-
-export function defaultSeoSitemapRunner({ execImpl } = {}) {
-  const exec = execImpl || nodeExec;
-
-  async function isInstalled() {
-    // Probe for the seo-sitemap skill. The exact discovery command depends on
-    // how claude-seo is installed in this environment; adjust the probe to your
-    // setup (see NOTE in the plan). Treat exit 0 + mention of the skill as ready.
-    const { code, stdout } = await exec("claude", ["skill", "list"]);
-    return code === 0 && /seo-sitemap/i.test(stdout);
+async function checkOne(f, url, log) {
+  let res;
+  try { res = await f(url, { redirect: "manual" }); }
+  catch (e) { log(`drop ${url}: fetch error ${e.message}`); return false; }
+  if (res.status !== 200) { log(`drop ${url}: status ${res.status}`); return false; }
+  if (res.url && res.url !== url) { log(`drop ${url}: redirected to ${res.url}`); return false; }
+  const xr = res.headers?.get?.("x-robots-tag") || "";
+  if (/noindex/i.test(xr)) { log(`drop ${url}: X-Robots-Tag noindex`); return false; }
+  let body = ""; try { body = await res.text(); } catch { body = ""; }
+  if (/<meta[^>]+name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(body)) { log(`drop ${url}: meta noindex`); return false; }
+  const canon = body.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i);
+  if (canon) {
+    let c; try { c = new URL(canon[1], url).href; } catch { c = canon[1]; }
+    if (c.replace(/#.*$/, "") !== url.replace(/#.*$/, "")) { log(`drop ${url}: canonical -> ${c}`); return false; }
   }
-
-  async function runSkill(origin) {
-    // Invoke seo-sitemap Mode 1 for this origin and return its stdout. The exact
-    // CLI form is environment-specific; the injected execImpl keeps it swappable.
-    const { stdout } = await exec("claude", [
-      "skill", "run", "seo-sitemap",
-      "--mode", "analyze-existing-sitemap",
-      "--site", origin,
-    ]);
-    return stdout;
-  }
-
-  return { isInstalled, runSkill };
+  return true;
 }
-
-// NOTE for the implementer: the `claude skill list` / `claude skill run` invocation above is a
-// placeholder for *how* claude-seo exposes `seo-sitemap` in this DDEV environment. Before relying
-// on it, confirm the real entry point: check the claude-seo plugin's `seo-sitemap` skill for its
-// documented CLI (it may be a Python script under the plugin dir, e.g.
-// `python3 .../seo-sitemap/scripts/analyze_sitemap.py <url>`, rather than a `claude skill run`
-// subcommand). Update `isInstalled`/`runSkill` to match; the parser and pipeline do not change.
-// This is the design's open question #3 ("whether claude-seo is added as a DDEV-Canvas addon
-// dependency or installed by the migration addon's own installer") — resolve it here.

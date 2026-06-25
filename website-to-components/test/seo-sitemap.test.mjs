@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSeoSitemapOutput, discoverWithSeoSitemap, defaultSeoSitemapRunner } from "../lib/seo-sitemap.js";
+import { parseSeoSitemapOutput, validateSitemapUrls } from "../lib/seo-sitemap.js";
 
 test("parseSeoSitemapOutput extracts same-origin URLs and dedupes", () => {
   const text = [
@@ -15,48 +15,52 @@ test("parseSeoSitemapOutput extracts same-origin URLs and dedupes", () => {
   assert.deepEqual(urls, ["https://example.com/", "https://example.com/about"]);
 });
 
-test("discoverWithSeoSitemap returns unavailable when skill not installed", async () => {
-  const logs = [];
-  const res = await discoverWithSeoSitemap({
-    origin: "https://example.com",
-    isInstalled: async () => false,
-    runSkill: async () => { throw new Error("should not run"); },
-    log: (m) => logs.push(m),
-  });
-  assert.equal(res.source, "unavailable");
-  assert.deepEqual(res.urls, []);
-  assert.ok(logs.some((m) => /claude-seo/i.test(m)));
+// Helper: build a fake Response-like object
+const resp = ({ status = 200, finalUrl, headers = {}, body = "" }) => ({
+  status,
+  url: finalUrl,
+  headers: { get: (k) => headers[k.toLowerCase()] ?? null },
+  text: async () => body,
 });
 
-test("discoverWithSeoSitemap returns parsed urls when installed", async () => {
-  const res = await discoverWithSeoSitemap({
-    origin: "https://example.com",
-    isInstalled: async () => true,
-    runSkill: async () => "- https://example.com/\n- https://example.com/pricing",
-    log: () => {},
-  });
-  assert.equal(res.source, "seo-sitemap");
-  assert.deepEqual(res.urls, ["https://example.com/", "https://example.com/pricing"]);
+test("validateSitemapUrls keeps a 200, same-final-url, no-noindex, self-canonical URL", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: `<link rel="canonical" href="${url}">` });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, ["https://example.com/page"]);
 });
 
-test("defaultSeoSitemapRunner.runSkill passes the origin to the skill and returns stdout", async () => {
-  const calls = [];
-  const execImpl = async (cmd, args) => {
-    calls.push({ cmd, args });
-    return { code: 0, stdout: "- https://example.com/\n", stderr: "" };
-  };
-  const runner = defaultSeoSitemapRunner({ execImpl });
-  const out = await runner.runSkill("https://example.com");
-  assert.equal(out, "- https://example.com/\n");
-  assert.ok(calls.length === 1);
-  // The origin must reach the underlying command somewhere in its argv/stdin.
-  const joined = JSON.stringify(calls[0]);
-  assert.ok(joined.includes("https://example.com"));
+test("validateSitemapUrls drops a 404", async () => {
+  const fetchImpl = async (url) => resp({ status: 404, finalUrl: url });
+  const result = await validateSitemapUrls(["https://example.com/missing"], { fetchImpl });
+  assert.deepEqual(result, []);
 });
 
-test("defaultSeoSitemapRunner.isInstalled reflects exec success", async () => {
-  const ok = defaultSeoSitemapRunner({ execImpl: async () => ({ code: 0, stdout: "seo-sitemap", stderr: "" }) });
-  assert.equal(await ok.isInstalled(), true);
-  const no = defaultSeoSitemapRunner({ execImpl: async () => ({ code: 1, stdout: "", stderr: "not found" }) });
-  assert.equal(await no.isInstalled(), false);
+test("validateSitemapUrls drops a redirected URL (final url differs)", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: "https://example.com/other" });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
+});
+
+test("validateSitemapUrls drops a X-Robots-Tag: noindex URL", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, headers: { "x-robots-tag": "noindex" } });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
+});
+
+test("validateSitemapUrls drops a URL whose <meta name=robots content=noindex> is in the body", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: '<meta name="robots" content="noindex, nofollow">' });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
+});
+
+test("validateSitemapUrls drops a URL whose <link rel=canonical> points elsewhere", async () => {
+  const fetchImpl = async (url) => resp({ status: 200, finalUrl: url, body: '<link rel="canonical" href="https://example.com/other">' });
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
+});
+
+test("validateSitemapUrls drops a URL whose fetch throws", async () => {
+  const fetchImpl = async () => { throw new Error("network error"); };
+  const result = await validateSitemapUrls(["https://example.com/page"], { fetchImpl });
+  assert.deepEqual(result, []);
 });
