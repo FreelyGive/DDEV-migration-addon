@@ -2,6 +2,7 @@ name: canvas-migration
 project_files:
   - config.canvas-migration.yaml
   - commands/nodejs/clone
+  - commands/host/canvas-bootstrap
   - web-build/Dockerfile.canvas-migration
   - website-to-components
   - .claude/skills/website-to-components
@@ -32,5 +33,9 @@ post_install_actions:
   - "echo ''"
   - "echo 'Canvas Migration addon installed.'"
   - "echo 'Run: ddev restart'"
+  - "echo 'First, bootstrap local permissions (idempotent): ddev canvas-bootstrap'"
   - "echo 'Then use: ddev clone https://your-site.com'"
+  - "echo 'Whole-site scope (--scope site) reads sitemap.xml and auto-validates URLs over HTTP.'"
+  - "echo 'Validation checks HTTP 200, no redirects, no noindex, and canonical self-reference.'"
+  - "echo 'Falls back to menu-reachable discovery if no sitemap found. No external dependency required.'"
 removal_actions: []

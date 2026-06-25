@@ -1772,3 +1772,20 @@ The highest-quality clones do NOT copy pixels. They reconstruct:
 - constraint behavior
 
 A perfect clone is essentially reverse-engineering the original design system from rendered output.
+
+## Step 12 — Auto-push to local Drupal (MANDATORY after green QC)
+
+This is the final pipeline step, run after Steps 0–11 complete. Only proceed when ALL quality gates pass: `npx canvas validate --all && npx canvas build`,
+visual diff, section diff, and content audit. Then push the result to the local DDEV-Canvas
+site (the default target):
+
+```bash
+node website-to-components/scripts/push-local.js <url>
+```
+
+This pushes components, creates the main/footer/sidebar menus, creates or upserts pages,
+publishes them, and prints the review URL. For `homepage` scope, menu links to pages that
+were not built resolve to `#` automatically. If the script reports a readiness problem
+(missing `CANVAS_LOCAL_*` or OAuth), fix it per the `canvas-push-local` skill and re-run.
+Pages are upserted when revisions are enabled on the `page` bundle and skipped (with a
+warning) when they are not, so re-runs never destroy unrecoverable content.

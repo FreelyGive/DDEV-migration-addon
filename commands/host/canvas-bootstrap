@@ -1,0 +1,80 @@
+#!/bin/bash
+## Description: Bootstrap Canvas migration permissions (JSON:API write, OAuth client, service user, page revisions) — idempotent
+## Usage: ddev canvas-bootstrap
+## Example: ddev canvas-bootstrap
+## ExecRaw: false
+
+set -euo pipefail
+
+# Host command: the bootstrap PHP needs drush, which lives in the WEB container,
+# while storybook/.env is a host file we must write directly. So we run the
+# script in the web container via `ddev exec -s web` and parse its result here.
+#
+# DDEV_APPROOT is exported by DDEV for host commands = the project root on the host.
+APPROOT="${DDEV_APPROOT:-$(pwd)}"
+SCRIPT_IN_WEB="/var/www/html/website-to-components/scripts/bootstrap-canvas.php"
+ENV_FILE="${APPROOT}/storybook/.env"
+DRUSH="/var/www/html/web/vendor/bin/drush"
+
+echo "==> Bootstrapping Canvas migration permissions (idempotent)..."
+# Run the bootstrap script inside the web container (has drush + DDEV_PRIMARY_URL).
+OUT="$(ddev exec -s web bash -c "cd /var/www/html/web && '$DRUSH' php:script '$SCRIPT_IN_WEB'")"
+echo "$OUT" | grep '^\[bootstrap\]' || true
+
+RESULT="$(echo "$OUT" | sed -n 's/^\[bootstrap-result\] //p' | tail -n1)"
+if [ -z "$RESULT" ]; then
+  echo "✗ Bootstrap produced no result line. See output above." >&2
+  exit 1
+fi
+
+CLIENT_ID="$(echo "$RESULT"     | sed -n 's/.*"client_id":"\([^"]*\)".*/\1/p')"
+CLIENT_SECRET="$(echo "$RESULT" | sed -n 's/.*"client_secret":"\([^"]*\)".*/\1/p')"
+SITE_URL="$(echo "$RESULT"      | sed -n 's/.*"site_url":"\([^"]*\)".*/\1/p')"
+JSONAPI_PREFIX="$(echo "$RESULT"| sed -n 's/.*"jsonapi_prefix":"\([^"]*\)".*/\1/p')"
+
+mkdir -p "$(dirname "$ENV_FILE")"
+touch "$ENV_FILE"
+
+# Track whether any "keep" sentinel referred to a key that doesn't actually
+# exist in .env yet — that means we'd report success while leaving a required
+# value unset.
+MISSING_KEPT=""
+
+# Upsert one key without clobbering unrelated lines. The sentinel value
+# "__keep__" (and empty) means: leave whatever is already in .env untouched
+# (reuse path — a pre-existing consumer's hashed secret cannot be recovered).
+# But "keep" only makes sense if the key is already present; if it is absent,
+# record it so the caller can fail loudly instead of claiming success.
+upsert_env() {
+  local key="$1" val="$2"
+  if [ "$val" = "__keep__" ] || [ -z "$val" ]; then
+    if grep -q "^${key}=" "$ENV_FILE"; then
+      echo "  (keeping existing ${key})"
+    else
+      echo "  ⚠ ${key} is unset and the bootstrap returned no value to write." >&2
+      MISSING_KEPT="${MISSING_KEPT} ${key}"
+    fi
+    return 0
+  fi
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    grep -v "^${key}=" "$ENV_FILE" > "${ENV_FILE}.tmp"
+    mv "${ENV_FILE}.tmp" "$ENV_FILE"
+  fi
+  echo "${key}=${val}" >> "$ENV_FILE"
+}
+
+upsert_env "CANVAS_LOCAL_SITE_URL"       "$SITE_URL"
+upsert_env "CANVAS_LOCAL_CLIENT_ID"      "$CLIENT_ID"
+upsert_env "CANVAS_LOCAL_CLIENT_SECRET"  "$CLIENT_SECRET"
+upsert_env "CANVAS_LOCAL_JSONAPI_PREFIX" "$JSONAPI_PREFIX"
+
+if [ -n "$MISSING_KEPT" ]; then
+  echo "✗ These keys are still unset in storybook/.env:${MISSING_KEPT}" >&2
+  echo "  The bootstrap reused an existing consumer whose secret cannot be recovered, but" >&2
+  echo "  no value was present to keep. Delete the 'Canvas AI'/'Canvas Migration' consumer at" >&2
+  echo "  /admin/config/services/consumer and re-run 'ddev canvas-bootstrap' to mint a fresh secret." >&2
+  exit 1
+fi
+
+echo "✓ Updated CANVAS_LOCAL_* in storybook/.env (kept __keep__ values)"
+echo "✓ Canvas migration bootstrap complete."

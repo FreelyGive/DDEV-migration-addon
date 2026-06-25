@@ -2,12 +2,18 @@
 import { writeFileSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { createInterface } from "node:readline/promises";
 import { run as screenshot } from "../jobs/01-screenshot.js";
 import { run as screenshotMobile } from "../jobs/01b-screenshot-mobile.js";
 import { run as extractAssets } from "../jobs/03b-extract-assets.js";
 import { run as downloadResources } from "../jobs/03c-download-resources.js";
 import { run as generateBrandKit } from "../jobs/03d-generate-brand-kit.js";
 import { siteSlug, sitePaths, cleanPage } from "../lib/paths.js";
+import { resolveScope } from "../lib/scope.js";
+import { resolveDiscovery } from "../lib/discovery.js";
+import { validateSitemapUrls } from "../lib/seo-sitemap.js";
+import { run as discoverSitemapMenus } from "../jobs/00-sitemap.js";
+import { normalizeMenus } from "../lib/menu.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, "../..");
@@ -23,6 +29,18 @@ if (!url) {
   console.error("  e.g. node run.js https://vercel.com");
   process.exit(1);
 }
+
+async function promptUser(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try { return await rl.question(question); } finally { rl.close(); }
+}
+
+const scope = await resolveScope({
+  argv: process.argv,
+  isTTY: process.stdin.isTTY === true,
+  prompt: promptUser,
+});
+console.log(`\n==> Migration scope: ${scope}`);
 
 const doClean = process.argv.includes('--clean') || process.env.CLEAN === '1';
 
@@ -56,6 +74,48 @@ await generateBrandKit(url);
 
 // Read meta to get screenshot paths for the handoff
 const meta = JSON.parse(readFileSync(sitePaths(url).metaPath, "utf8"));
+meta.scope = scope;
+const origin = new URL(url).origin;
+
+// discoverSitemapMenus shells out to agent-browser (a full open/snapshot/eval
+// pass). It is needed both for menu-reachable discovery and for menu extraction
+// below, so memoize the promise and reuse it rather than running the browser twice.
+let sitemapMenusPromise = null;
+const getSitemapMenus = () => (sitemapMenusPromise ??= discoverSitemapMenus(url));
+
+const discovery = await resolveDiscovery({
+  scope,
+  origin,
+  homepageUrl: origin + "/",
+  fetchXml: async (p) => {
+    try {
+      const r = await fetch(origin + p);
+      return r.ok ? await r.text() : null;
+    } catch { return null; }
+  },
+  listMenuPages: async () => {
+    const sm = await getSitemapMenus();
+    return (sm.pages || []).map(pg => pg.url);
+  },
+  log: (m) => console.log(m),
+  validateUrls: scope === "site"
+    ? (urls) => validateSitemapUrls(urls, { fetchImpl: fetch, log: (m) => console.log(m) })
+    : undefined,
+});
+meta.discovery = { source: discovery.source, pages: discovery.pages };
+console.log(`\n==> Discovery (${discovery.source}): ${discovery.pages.length} page(s)`);
+
+// Menus come from nav extraction (not the sitemap, which has no hierarchy).
+try {
+  const sm = await getSitemapMenus();
+  const rawMenus = sm.menusRaw || { main: (sm.pages || []).map(p => ({ label: p.label, url: p.url })), footer: [], sidebar: [] };
+  meta.menus = normalizeMenus(rawMenus, origin);
+} catch (e) {
+  console.log(`  Menu extraction skipped: ${e.message}`);
+  meta.menus = { main: [], footer: [], sidebar: [] };
+}
+
+writeFileSync(sitePaths(url).metaPath, JSON.stringify(meta, null, 2));
 const desktopScreenshot = meta.screenshotPath;
 const mobileScreenshot = meta.mobile?.screenshotPath ?? null;
 

@@ -1,18 +1,25 @@
 #!/bin/bash
 ## Description: Clone a website into canvas components
-## Usage: clone <url> [--clean] [--no-mobile]
-## Example: ddev clone https://example.com
+## Usage: clone <url> [--scope homepage|menus|site] [--clean] [--no-mobile]
+## Example: ddev clone https://example.com --scope site
 
 set -e
 
 URL="$1"
 if [ -z "$URL" ]; then
-  echo "Usage: ddev clone <url> [--clean] [--no-mobile]"
-  echo "  e.g. ddev clone https://example.com"
+  echo "Usage: ddev clone <url> [--scope homepage|menus|site] [--clean] [--no-mobile]"
+  echo "  e.g. ddev clone https://example.com --scope site"
   exit 1
 fi
 
 shift  # remaining args passed through to run.js
+
+# NOTE: permission bootstrap runs as the HOST command `ddev canvas-bootstrap`
+# (it needs drush — which lives in the web container — and writes the host
+# storybook/.env). This `clone` command runs in the nodejs container and cannot
+# invoke a host command, so bootstrap is not called inline here. The reminder
+# below points users at it; it is idempotent and safe to re-run.
+echo "==> If local permissions are not bootstrapped yet, run from the host first: ddev canvas-bootstrap"
 
 cd /var/www/html/website-to-components
 node scripts/run.js "$URL" "$@"
