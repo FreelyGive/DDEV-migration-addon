@@ -39,3 +39,18 @@ test("site scope with no sitemap falls back to menus", async () => {
   assert.equal(res.source, "menus");
   assert.equal(res.pages.length, 2);
 });
+
+test("site scope prefers seo-sitemap when it returns urls", async () => {
+  const seoSitemap = async () => ({ source: "seo-sitemap", urls: ["https://x.com/", "https://x.com/blog"] });
+  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
+  assert.equal(res.source, "seo-sitemap");
+  assert.deepEqual(res.pages, ["https://x.com/", "https://x.com/blog"]);
+});
+
+test("site scope falls back to discoverSiteUrls when seoSitemap returns unavailable", async () => {
+  const seoSitemap = async () => ({ source: "unavailable", urls: [] });
+  const res = await resolveDiscovery({ ...common, scope: "site", seoSitemap });
+  // fetchXml returns null so discoverSiteUrls falls back to menus
+  assert.equal(res.source, "menus");
+  assert.equal(res.pages.length, 2);
+});
