@@ -80,6 +80,14 @@ Bounds must cover the full page width (x=0, width = page width). The y and heigh
 
 After producing the final list, the cropper (`applySections`) validates it: it rejects overlaps, clamps to page height, and warns on gaps or any section spanning >70% of the page. If you see those warnings, your merge/split was wrong — revisit it.
 
+## Boundary precision: place cuts in the gap, then verify
+
+Sections bleed into one another when a boundary is placed at a content edge instead of the blank band between sections, or when it is read off a downscaled preview. To keep boundaries precise:
+
+1. **Cut in the gap, never at the content edge.** Each boundary `y` goes in the blank background band *below* all of section N's content (text descenders, rounded card bottoms, shadows, decorative shapes, low-alpha tints) and *above* section N+1's first pixel.
+2. **Probe each seam at full resolution before committing.** Read a narrow native-resolution strip across the candidate boundary directly from the screenshot (`Read` a ~90px-tall crop, `y-45` to `y+45`, full width) and confirm it is empty background. Reading crops of the existing `screenshot.png` is allowed and expected: this does not violate the "no new screenshots" rule; do NOT take fresh captures with Playwright/ImageMagick.
+3. **Bleed self-check before output (MANDATORY).** After settling on bounds, read each section region's top and bottom edge, confirm each begins and ends on blank background with no clipped or bleeding content, and adjust any failing boundary before emitting the section list. Do not report done after one pass.
+
 Example output:
 
 ### Section 1: Navbar + Hero
