@@ -1,6 +1,6 @@
 {
   "name": "website-to-components",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "scripts": {
     "screenshot": "node jobs/01-screenshot.js",
