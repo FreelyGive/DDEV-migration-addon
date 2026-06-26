@@ -12,7 +12,7 @@
 import { readFileSync } from "fs";
 import { sitePaths } from "../lib/paths.js";
 import { cropSections } from "../jobs/02-split-sections.js";
-import sharp from "sharp";
+import { imageSize } from "../lib/image.js";
 
 const url = process.argv[2];
 const jsonPath = process.argv[3];
@@ -28,7 +28,7 @@ if (!Array.isArray(sections) || sections.length === 0) {
 }
 
 const { screenshotPath, sectionsDir } = sitePaths(url);
-const meta = await sharp(screenshotPath).metadata();
+const meta = imageSize(screenshotPath);
 
 const normalized = sections.map((s, i) => ({
   label: s.label || `Section ${i + 1}`,

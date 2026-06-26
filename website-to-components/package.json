@@ -1,6 +1,6 @@
 {
   "name": "website-to-components",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "scripts": {
     "screenshot": "node jobs/01-screenshot.js",
@@ -15,12 +15,13 @@
     "sitemap": "node jobs/05-sitemap.js",
     "run-all": "node scripts/run-all.js",
     "finish-all": "node scripts/finish-all.js",
-    "audit": "node scripts/audit-content.js"
+    "audit": "node scripts/audit-content.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30",
+    "image-size": "^2.0.2",
     "pixelmatch": "^7.2.0",
-    "pngjs": "^7.0.0",
-    "sharp": "^0.33"
+    "pngjs": "^7.0.0"
   }
 }
