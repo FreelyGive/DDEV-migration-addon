@@ -1,6 +1,7 @@
 import { execSync, spawnSync } from "child_process";
 import { writeFileSync } from "fs";
 import { sitePaths, ensureDir } from "../lib/paths.js";
+import { paintVideoIframes } from "../lib/video-iframes.js";
 import { measureSections } from "./01c-measure-sections.js";
 
 function browserEval(js) {
@@ -139,12 +140,24 @@ export async function run(url) {
     'kicked';
   `);
 
-  // Wait for all images AND video posters to be decoded and displayed.
-  console.log("Waiting for all images and video posters to load...");
-  execSync(
-    "agent-browser wait --fn \"[...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0)\"",
-    { stdio: "inherit" },
-  );
+  // YouTube throttles poster rendering for off-screen/automated iframes, so the
+  // embeds capture blank. Replace each youtube.com/embed/<id> iframe with its
+  // real CDN poster (img.youtube.com/vi/<id>/...) + play overlay BEFORE the image
+  // gate, so the new poster <img> are included in the "all images loaded" wait.
+  paintVideoIframes(browserEval);
+
+  // Hard lazy-image gate: do NOT capture until every <img> has decoded
+  // (complete && naturalWidth > 0). Bounded with a timeout so a single broken
+  // asset can't hang the run forever.
+  console.log("Gating on all <img> loaded (complete && naturalWidth > 0)...");
+  try {
+    execSync(
+      "agent-browser wait --fn \"[...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0)\" --timeout 15000",
+      { stdio: "inherit" },
+    );
+  } catch {
+    console.log("Image gate timed out — continuing (some images may be slow/broken).");
+  }
   // <video> readiness (HAVE_CURRENT_DATA+) and poster image decode — these are
   // not <img> nodes, so they need their own gate. Tolerant: posters that fail to
   // decode must not hang the run, so we bound the wait.
@@ -155,14 +168,6 @@ export async function run(url) {
     );
   } catch {
     console.log("Video readiness gate timed out — continuing (posters may be slow).");
-  }
-  // Give real <iframe> video embeds a fixed settle to paint their thumbnail.
-  const hasIframeVideo = browserEval(
-    "!!document.querySelector('iframe[src*=\"youtube\"], iframe[src*=\"vimeo\"], iframe[src*=\"player\"], iframe[src*=\"embed\"]')",
-  );
-  if (hasIframeVideo === "true") {
-    console.log("Iframe video embed present — settling 3s for it to paint...");
-    execSync("agent-browser wait 3000", { stdio: "inherit" });
   }
 
   console.log("Taking full-page screenshot...");

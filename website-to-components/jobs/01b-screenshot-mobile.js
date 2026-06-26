@@ -11,10 +11,13 @@
 
 import { execSync, spawnSync } from "child_process";
 import { writeFileSync, readFileSync } from "fs";
+import sharp from "sharp";
 import { sitePaths, ensureDir } from "../lib/paths.js";
+import { paintVideoIframes } from "../lib/video-iframes.js";
 
 const MOBILE_WIDTH = 390;
 const MOBILE_HEIGHT = 844;
+const MOBILE_SCALE = 2; // deviceScaleFactor — retina/@2x render
 
 function browserEval(js) {
   const result = spawnSync("agent-browser", ["eval", "--stdin"], {
@@ -32,10 +35,56 @@ export async function run(url) {
 
   ensureDir(paths.outputDir);
 
-  console.log(`Setting mobile viewport ${MOBILE_WIDTH}x${MOBILE_HEIGHT}...`);
-  execSync(`agent-browser set viewport ${MOBILE_WIDTH} ${MOBILE_HEIGHT}`, { stdio: "inherit" });
+  // Open FIRST, then set the viewport on the live page.
+  //
+  // `set viewport` must run AFTER `open`. The desktop job (01-screenshot.js)
+  // ends with `agent-browser close`, so the daemon's browser is freshly
+  // (re)created here; a `set viewport` issued before `open` is discarded when
+  // the navigation rebuilds the page, leaving the capture at the daemon's
+  // default (desktop) width — which is exactly how the mobile screenshot ended
+  // up the same size as desktop. Resize the page that actually exists.
+  // The sequence open → set viewport → reopen is deliberate and all three steps
+  // are load-bearing (verified against agent-browser on host):
+  //  - `set viewport` issued BEFORE any open is silently discarded — the first
+  //    open resets the daemon to its default 1280x1, so a viewport set with no
+  //    page context never sticks (this is the original desktop-width bug).
+  //  - So we open ONCE to establish a page context, THEN set the mobile viewport
+  //    (it now sticks on the daemon), THEN reopen so the page does a fresh load
+  //    at 390px — responsive sites that branch on the initial width (JS, not just
+  //    CSS media queries) need the reload, not just a post-load resize.
+  console.log(`Opening ${url} to establish page context...`);
   execSync(`agent-browser open "${url}"`, { stdio: "inherit" });
   execSync("agent-browser wait --load networkidle", { stdio: "inherit" });
+
+  console.log(`Setting mobile viewport ${MOBILE_WIDTH}x${MOBILE_HEIGHT} @${MOBILE_SCALE}x...`);
+  // Third positional arg is the deviceScaleFactor (retina). `set viewport 390
+  // 844 2` yields window.innerWidth=390 and devicePixelRatio=2 exactly. Do NOT
+  // use `set device "iPhone 12"` — that profile reports innerWidth 980 / dpr 3,
+  // not a 390 @2x render.
+  execSync(`agent-browser set viewport ${MOBILE_WIDTH} ${MOBILE_HEIGHT} ${MOBILE_SCALE}`, { stdio: "inherit" });
+  console.log("Reloading at mobile viewport...");
+  execSync(`agent-browser open "${url}"`, { stdio: "inherit" });
+  execSync("agent-browser wait --load networkidle", { stdio: "inherit" });
+  execSync("agent-browser wait 500", { stdio: "pipe" });
+
+  // Verification gate: confirm the live page is actually a 390px @2x mobile
+  // render before we spend time scrolling/capturing. Fail loudly otherwise —
+  // never emit a desktop-width screenshot labelled as mobile.
+  const innerWidth = parseInt(browserEval("window.innerWidth"), 10);
+  const measuredDpr = parseFloat(browserEval("window.devicePixelRatio"));
+  if (innerWidth !== MOBILE_WIDTH) {
+    throw new Error(
+      `Mobile viewport did not apply: window.innerWidth=${innerWidth}px, expected exactly ${MOBILE_WIDTH}px. ` +
+      `Aborting so we don't emit a desktop-width screenshot labelled as mobile.`,
+    );
+  }
+  if (measuredDpr !== MOBILE_SCALE) {
+    throw new Error(
+      `Mobile devicePixelRatio is ${measuredDpr}, expected ${MOBILE_SCALE}. The capture would not be a ` +
+      `true @${MOBILE_SCALE}x mobile render — aborting. Check that 'set viewport ${MOBILE_WIDTH} ${MOBILE_HEIGHT} ${MOBILE_SCALE}' is supported.`,
+    );
+  }
+  console.log(`Confirmed mobile viewport: window.innerWidth=${innerWidth}px, dpr=${measuredDpr}`);
 
   // Dismiss cookie banner
   const cookieSelectors = [
@@ -124,21 +173,64 @@ export async function run(url) {
     ]);
     'media ready';
   `);
-  // Settle for iframe video embeds (YouTube/Vimeo) to paint their thumbnail.
-  const hasIframeVideo = browserEval(
-    "!!document.querySelector('iframe[src*=\"youtube\"], iframe[src*=\"vimeo\"], iframe[src*=\"player\"], iframe[src*=\"embed\"]')",
+  // YouTube throttles poster rendering for off-screen/automated iframes, so the
+  // embeds capture blank. Replace each youtube.com/embed/<id> iframe with its
+  // real CDN poster (img.youtube.com/vi/<id>/...) + play overlay, then wait for
+  // those poster <img> to load. (Also waits internally for the posters.)
+  paintVideoIframes(browserEval);
+
+  // Hard lazy-image gate: do NOT capture until every <img> has actually decoded
+  // (complete && naturalWidth > 0). The scroll pass above pulls lazy images into
+  // view; this gate guarantees they finished before we shoot. Bounded so a
+  // single broken asset can't hang the run.
+  console.log("Gating on all <img> loaded (complete && naturalWidth > 0)...");
+  const imgGate = spawnSync(
+    "agent-browser",
+    [
+      "wait",
+      "--fn",
+      "[...document.querySelectorAll('img')].every(img => img.complete && img.naturalWidth > 0)",
+      "--timeout",
+      "15000",
+    ],
+    { stdio: "pipe", encoding: "utf8" },
   );
-  execSync(`agent-browser wait ${hasIframeVideo === "true" ? 3000 : 1000}`, { stdio: "pipe" });
+  const imgStats = browserEval(
+    "(() => { const a = [...document.querySelectorAll('img')]; return JSON.stringify({total: a.length, loaded: a.filter(i => i.complete && i.naturalWidth > 0).length}); })()",
+  );
+  if (imgGate.status !== 0) {
+    console.log(`WARN: image gate timed out — ${imgStats} (capturing anyway).`);
+  } else {
+    console.log(`All images loaded: ${imgStats}`);
+  }
+
+  // Capture the device pixel ratio while the page is still live — the full-page
+  // PNG is rendered at MOBILE_WIDTH × dpr, so we need it to validate the output.
+  const dpr = parseFloat(browserEval("window.devicePixelRatio")) || 1;
 
   console.log("Taking mobile full-page screenshot...");
   execSync(`agent-browser screenshot "${mobileScreenshotPath}" --full`, { stdio: "inherit" });
 
   execSync("agent-browser close", { stdio: "inherit" });
 
+  // Second verification gate: the produced PNG must actually be mobile-width.
+  // Guards against a viewport that reverted between the innerWidth check and the
+  // capture. Expected PNG width = MOBILE_WIDTH × devicePixelRatio.
+  const expectedPngWidth = Math.round(MOBILE_WIDTH * dpr);
+  const pngMeta = await sharp(mobileScreenshotPath).metadata();
+  if (pngMeta.width > expectedPngWidth + 40) {
+    throw new Error(
+      `Mobile screenshot is ${pngMeta.width}px wide, expected ~${expectedPngWidth}px ` +
+      `(${MOBILE_WIDTH}px × dpr ${dpr}). The capture is desktop-width — refusing to ` +
+      `save it as the mobile screenshot.`,
+    );
+  }
+  console.log(`Confirmed mobile screenshot width: ${pngMeta.width}px (dpr ${dpr})`);
+
   // Persist mobile screenshot path into meta.json
   let savedMeta = {};
   try { savedMeta = JSON.parse(readFileSync(metaPath, "utf8")); } catch {}
-  savedMeta.mobile = { screenshotPath: mobileScreenshotPath };
+  savedMeta.mobile = { screenshotPath: mobileScreenshotPath, width: pngMeta.width, height: pngMeta.height };
   writeFileSync(metaPath, JSON.stringify(savedMeta, null, 2));
 
   console.log(`Mobile screenshot saved to ${mobileScreenshotPath}`);
