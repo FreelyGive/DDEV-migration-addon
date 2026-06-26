@@ -518,6 +518,14 @@ Use this when you need existing `sections/` images still available after the run
 
 **Vision is the sole authority on section boundaries.** Do not use colour-delta heuristics or pre-cropped guesses to decide where sections start and end. The agent reads the full-page screenshot and uses semantic understanding — content structure, visual rhythm, background changes, whitespace bands, navbar vs hero vs band vs footer — to place boundaries precisely without splitting text or cutting mid-component.
 
+#### Boundary-placement procedure (MANDATORY)
+
+Sections bleed into one another when a boundary `y` is placed at a content edge instead of in the gap, or when it is read off the downscaled full-page preview instead of the native-resolution `screenshot.png`. Follow this for every boundary:
+
+1. **Cut in the gap, never at the content edge.** A boundary goes in the blank background band *between* sections: below all of section N's content (text descenders, rounded card bottoms, decorative circles, drop shadows, low-alpha tints) and above the first pixel of section N+1. If two sections touch with no gap, place the cut at the exact last background row before N+1 begins; never inside either section's content.
+2. **Probe every seam at full resolution before committing the `y`.** Read a narrow native-resolution strip across each candidate boundary directly from `screenshot.png` (crop ~90px tall, `y-45` to `y+45`, at full page width with the `Read` tool) and confirm the band is empty background. Never eyeball the boundary off the downscaled full-page preview: that is where the ±15-30px bleed errors come from.
+3. **Cross-check against DOM bounds when you have them.** If element bounds were captured for the page, use them to anchor the `y`; the seam-probe in step 2 is still required and is non-negotiable when DOM measurement was unavailable.
+
 **One subagent per page (default).** For multi-page sites, spawn one vision subagent for *each* page in parallel. Each subagent owns the complete vision pipeline for its page (read screenshot → detect section boundaries → identify components → write components.json) and returns when done.
 
 Why: total vision wall is `max(subagent_duration)`, not sum. A 4-page-per-subagent batch takes ~12–15m wall (4 pages × 3–4m each, done serially inside one subagent). A 1-page-per-subagent fanout takes ~3–4m wall — the same per-page work runs in parallel.
@@ -539,7 +547,7 @@ The page slugs come straight from the site's sitemap (`output/<site>/sitemap.jso
 **Concurrency cap:** the harness can typically run ~10 parallel subagents cleanly. For sites with >10 pages, batch in two waves (10 + 6) rather than a 16-wide spawn. If you hit session-limit on any subagent, **do NOT auto-respawn** — pause via `ScheduleWakeup` or surface to the user.
 
 **Subagent prompt template (per page):**
-> "Analyze ONE page (`<page-slug>`) of `<site>` and write its components.json. The full-page screenshot is at `website-to-components/output/<site>/<page-slug>/screenshot.png`. Read it with the `Read` tool and use AI vision to identify section boundaries semantically — look for content structure, background color changes, whitespace bands, navbar/hero/band/footer patterns — then crop each section precisely using `node website-to-components/scripts/crop-sections.js <page-url> /tmp/<slug>-sections.json`. **Never split text in the middle of a paragraph or cut a component in half.** For each identified section, identify the React component(s) needed. Write `components.json` using the Write tool. JSON shape per section: `{ section, sectionBounds, components: [{ name, type, description, layout, background, children }] }`."
+> "Analyze ONE page (`<page-slug>`) of `<site>` and write its components.json. The full-page screenshot is at `website-to-components/output/<site>/<page-slug>/screenshot.png`. Read it with the `Read` tool and use AI vision to identify section boundaries semantically (look for content structure, background color changes, whitespace bands, navbar/hero/band/footer patterns). **Place every boundary in the blank gap between sections, never at a content edge:** below all of section N's content (descenders, rounded card bottoms, shadows, tints) and above section N+1's first pixel. **Before committing each boundary `y`, probe the seam at full resolution:** crop a ~90px native-res strip (`y-45` to `y+45`, full width) from `screenshot.png` with the `Read` tool and confirm the band is empty background; never eyeball off the downscaled preview. Then crop each section using `node website-to-components/scripts/crop-sections.js <page-url> /tmp/<slug>-sections.json`. **Never split text in the middle of a paragraph or cut a component in half.** **Mandatory bleed self-check before writing components.json:** read every cropped `section-NN.png`'s top and bottom edge, confirm each begins and ends on blank background with no clipped or bleeding content from the neighbouring section, and re-cut any section that fails before reporting done. For each identified section, identify the React component(s) needed. Write `components.json` using the Write tool. JSON shape per section: `{ section, sectionBounds, components: [{ name, type, description, layout, background, children }] }`."
 
 **Fallback to batched fanout (only if needed):** if the harness can't run N parallel subagents OR you're working a non-multi-page run, fall back to 3–4 pages per subagent. Wall clock is dominated by the longest subagent — keep batches balanced.
 
@@ -599,6 +607,16 @@ Rules:
 - **State whether images are `<img>` or CSS `background-image`** — this is critical for implementation. An `<img>` scales with its container; a CSS background needs explicit dimensions. When in doubt, verify via `agent-browser eval` before writing the description.
 - **State alignment** — `items-start`, `items-center`, or `items-end` for every flex container.
 - **Never say "left side has X, right side has Y"** without column widths and flex/grid type.
+
+#### Bleed self-check gate (MANDATORY before components.json)
+
+After cropping and before writing `components.json` (or reporting the page done), verify the cuts actually landed in the gaps:
+
+1. Read every cropped `section-NN.png` with the `Read` tool.
+2. Inspect its **top edge and bottom edge**: each section must begin and end on blank background, with no text, image, card, or shadow clipped from itself and no content bleeding in from the neighbouring section.
+3. **Re-cut any section that fails:** adjust the offending boundary `y` per the boundary-placement procedure (probe the seam at full resolution, move the cut into the gap), re-run `crop-sections.js`, and re-check.
+
+Do not declare the page done after a single cropping pass. This gate is what catches the ±15–30px bleed that a downscaled-preview estimate leaves behind.
 
 ---
 
