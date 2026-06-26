@@ -33,7 +33,7 @@
 import { readdirSync, writeFileSync, existsSync, statSync, readFileSync } from "fs";
 import { dirname, join, resolve, extname, basename } from "path";
 import { fileURLToPath } from "url";
-import sharp from "sharp";
+import { imageSize as readImageSize } from "../lib/image.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -92,12 +92,10 @@ function classify(tokens) {
 }
 
 async function imageSize(filePath) {
-  try {
-    const meta = await sharp(filePath).metadata();
-    return { w: meta.width, h: meta.height };
-  } catch {
-    return null;
-  }
+  // Pure-JS, multi-format header read (png/jpg/webp/gif/svg/avif). Returns the
+  // legacy { w, h } shape consumed by image-tags.json; null on unreadable input.
+  const dims = readImageSize(filePath);
+  return dims ? { w: dims.width, h: dims.height } : null;
 }
 
 function findImageDirs(host) {

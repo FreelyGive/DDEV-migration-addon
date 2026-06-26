@@ -25,7 +25,7 @@
 import { execSync, spawnSync } from "child_process";
 import { writeFileSync, readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
-import sharp from "sharp";
+import { imageSize, cropPng } from "../lib/image.js";
 import { sitePaths, ensureDir } from "../lib/paths.js";
 
 const MOBILE_WIDTH = 390;
@@ -60,12 +60,10 @@ async function screenshotStory(componentName, outPath) {
   execSync(`agent-browser screenshot "${outPath}" --full`, { stdio: "pipe" });
   // Trim any excessive white space below the component
   try {
-    const meta = await sharp(outPath).metadata();
+    const meta = imageSize(outPath);
     if (meta.height > MOBILE_HEIGHT * 2) {
       // Crop to reasonable height — components shouldn't be taller than 2 viewports
-      await sharp(outPath)
-        .extract({ left: 0, top: 0, width: meta.width, height: Math.min(meta.height, MOBILE_HEIGHT * 2) })
-        .toFile(outPath + ".tmp.png");
+      cropPng(outPath, { left: 0, top: 0, width: meta.width, height: Math.min(meta.height, MOBILE_HEIGHT * 2) }, outPath + ".tmp.png");
       execSync(`mv "${outPath}.tmp.png" "${outPath}"`);
     }
   } catch { /* keep original if crop fails */ }
@@ -124,7 +122,7 @@ export async function run(url, canvasDir) {
     try {
       openStory(name);
       await screenshotStory(name, outPath);
-      const meta = await sharp(outPath).metadata();
+      const meta = imageSize(outPath);
       console.log(`✅ ${meta.width}x${meta.height}px`);
       results.push({ name, screenshotPath: outPath, status: "ok" });
     } catch (e) {

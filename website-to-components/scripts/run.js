@@ -166,7 +166,16 @@ await applySections("${url}", desktopSections, mobileSections);
 \`\`\`
 
 Where \`desktopSections\` and \`mobileSections\` are arrays of:
-\`{ label, y, height, width, reason }\` — refined from \`dom-sections.json\`.
+\`{ label, y, height, width, reason, seamProbe }\` — refined from \`dom-sections.json\`.
+
+\`seamProbe\` is **required** on every section. \`applySections()\` hard-fails if any
+section is missing it. Before setting it, \`Read\` a ~90px native-resolution strip
+across that section's top and bottom boundary (\`y-45\` to \`y+45\`, full width) from
+the screenshot and record what the strip actually showed, e.g.
+\`"top y=900 DOM edge, blank band; bottom y=1600 card shadows end ~y=1585, blank to 1600"\`.
+A boundary you left on its DOM edge still gets probed — DOM bounds are accurate but
+the screenshot may still show a shadow/descender crossing the line. Do NOT take new
+screenshots; reading crops of the existing screenshot is expected.
 
 ## Step 2 — Detect components
 

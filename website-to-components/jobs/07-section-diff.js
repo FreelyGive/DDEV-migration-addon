@@ -27,10 +27,10 @@
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync, writeFileSync, readdirSync, mkdirSync } from "fs";
 import { join } from "path";
-import sharp from "sharp";
 import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import { sitePaths, ensureDir } from "../lib/paths.js";
+import { imageSize, cropPng, resizePngFill } from "../lib/image.js";
 
 function browserScreenshot(path) {
   spawnSync("agent-browser", ["screenshot", "--full", path], { stdio: "inherit" });
@@ -80,12 +80,12 @@ export async function run(pageUrl, storyUrl, opts = {}) {
     console.error(`Source screenshot missing: ${sourceFullPath}`);
     process.exit(1);
   }
-  const sourceFullMeta = await sharp(sourceFullPath).metadata();
+  const sourceFullMeta = imageSize(sourceFullPath);
   const sourceWidth = sourceFullMeta.width;
   const sourceHeight = sourceFullMeta.height;
 
   // Storybook screenshot meta
-  const liveMeta = await sharp(liveShot).metadata();
+  const liveMeta = imageSize(liveShot);
   const liveWidth = liveMeta.width;
   const liveHeight = liveMeta.height;
   const heightScale = liveHeight / sourceHeight;
@@ -101,7 +101,7 @@ export async function run(pageUrl, storyUrl, opts = {}) {
     const fname = sectionFiles[i];
     const idx = pad2(i + 1);
     const sourcePath = join(sectionsDir, fname);
-    const meta = await sharp(sourcePath).metadata();
+    const meta = imageSize(sourcePath);
     const sectionHeight = meta.height;
     const sectionWidth = meta.width;
 
@@ -109,15 +109,11 @@ export async function run(pageUrl, storyUrl, opts = {}) {
     const liveY = Math.round(yCursor * heightScale);
     const liveH = Math.round(sectionHeight * heightScale);
     const liveSliceRaw = join(diffsDir, `section-${idx}-live.png`);
-    await sharp(liveShot)
-      .extract({ left: 0, top: liveY, width: liveWidth, height: Math.min(liveH, liveHeight - liveY) })
-      .toFile(liveSliceRaw);
+    cropPng(liveShot, { left: 0, top: liveY, width: liveWidth, height: Math.min(liveH, liveHeight - liveY) }, liveSliceRaw);
 
     // Resize live slice to source dimensions so pixelmatch can compare
     const liveSliceResized = join(diffsDir, `section-${idx}-live-resized.png`);
-    await sharp(liveSliceRaw)
-      .resize(sectionWidth, sectionHeight, { fit: "fill" })
-      .toFile(liveSliceResized);
+    resizePngFill(liveSliceRaw, sectionWidth, sectionHeight, liveSliceResized);
 
     // Pixel diff
     const sourcePng = PNG.sync.read(readFileSync(sourcePath));

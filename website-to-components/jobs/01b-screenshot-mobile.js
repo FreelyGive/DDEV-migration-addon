@@ -11,7 +11,7 @@
 
 import { execSync, spawnSync } from "child_process";
 import { writeFileSync, readFileSync } from "fs";
-import sharp from "sharp";
+import { imageSize } from "../lib/image.js";
 import { sitePaths, ensureDir } from "../lib/paths.js";
 import { paintVideoIframes } from "../lib/video-iframes.js";
 
@@ -217,7 +217,7 @@ export async function run(url) {
   // Guards against a viewport that reverted between the innerWidth check and the
   // capture. Expected PNG width = MOBILE_WIDTH × devicePixelRatio.
   const expectedPngWidth = Math.round(MOBILE_WIDTH * dpr);
-  const pngMeta = await sharp(mobileScreenshotPath).metadata();
+  const pngMeta = imageSize(mobileScreenshotPath);
   if (pngMeta.width > expectedPngWidth + 40) {
     throw new Error(
       `Mobile screenshot is ${pngMeta.width}px wide, expected ~${expectedPngWidth}px ` +

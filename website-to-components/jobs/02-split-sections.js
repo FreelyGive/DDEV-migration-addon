@@ -1,7 +1,7 @@
-import sharp from "sharp";
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { sitePaths, ensureDir } from "../lib/paths.js";
+import { imageSize, cropPng } from "../lib/image.js";
 
 // Section detection is handled by Claude using the visual-page-section-segmentation skill.
 // See .claude/skills/webpage-sections-splitter/SKILL.md for the prompt.
@@ -15,12 +15,14 @@ function parseMarkdownSections(markdown, imageWidth) {
     const boundsMatch = block.match(/\*\*Bounds:\*\*\s*x=(\d+),\s*y=(\d+),\s*width=(\d+),\s*height=(\d+)/);
     const fileMatch = block.match(/\*\*File:\*\*\s*(\S+\.png)/);
     const reasonMatch = block.match(/\*\*Reason:\*\*\s*(.+)/);
+    const seamProbeMatch = block.match(/\*\*Seam-probe:\*\*\s*(.+)/);
 
     if (!boundsMatch || !fileMatch) continue;
 
     sections.push({
       label: labelMatch?.[1]?.trim() ?? "Section",
       reason: reasonMatch?.[1]?.trim() ?? "",
+      seamProbe: seamProbeMatch?.[1]?.trim() ?? "",
       x: parseInt(boundsMatch[1], 10),
       y: parseInt(boundsMatch[2], 10),
       width: parseInt(boundsMatch[3], 10) || imageWidth,
@@ -42,6 +44,21 @@ function parseMarkdownSections(markdown, imageWidth) {
 export function validateSections(sections, imageHeight, imageWidth) {
   if (!Array.isArray(sections) || sections.length === 0) {
     throw new Error("validateSections: empty section list");
+  }
+  // Seam-probe gate: every section MUST record the native-res strip it read
+  // across its boundary (see visual-page-section-segmentation skill). A missing
+  // or blank seamProbe means the boundary was committed without probing for
+  // bleed — the exact failure this enforcement exists to catch. Hard-fail so the
+  // crop never runs on un-probed bounds.
+  const unprobed = sections
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => typeof s?.seamProbe !== "string" || s.seamProbe.trim() === "");
+  if (unprobed.length) {
+    const names = unprobed.map(({ s, i }) => `"${s?.label ?? `#${i + 1}`}"`).join(", ");
+    throw new Error(
+      `validateSections: missing seam-probe on ${unprobed.length} section(s): ${names}. ` +
+        `Read a native-resolution strip across each boundary and record what it showed in seamProbe before cropping — see the visual-page-section-segmentation skill.`,
+    );
   }
   const sorted = sections
     .map((s) => ({ ...s, y: Math.max(0, Math.round(Number(s.y))), height: Math.round(Number(s.height)) }))
@@ -93,7 +110,7 @@ export async function cropSections(screenshotPath, sections, outputDir, imageWid
   ensureDir(outputDir);
   const sectionPaths = [];
 
-  const meta = await sharp(screenshotPath).metadata();
+  const meta = imageSize(screenshotPath);
   const imageHeight = meta.height;
   const { sections: validated } = validateSections(sections, imageHeight, imageWidth);
 
@@ -106,9 +123,7 @@ export async function cropSections(screenshotPath, sections, outputDir, imageWid
     const cropHeight = Math.min(s.height, imageHeight - top);
     if (cropHeight < 1) continue;
 
-    await sharp(screenshotPath)
-      .extract({ left: 0, top, width: imageWidth, height: cropHeight })
-      .toFile(outPath);
+    cropPng(screenshotPath, { left: 0, top, width: imageWidth, height: cropHeight }, outPath);
 
     sectionPaths.push(outPath);
     console.log(`  Saved ${outPath} (${s.label ?? `Section ${i + 1}`}, y:${top}–${top + cropHeight})`);
@@ -123,13 +138,13 @@ export async function applySections(url, desktopSections, mobileSections) {
   const { screenshotPath, sectionsDir, metaPath } = sitePaths(url);
   const savedMeta = JSON.parse(readFileSync(metaPath, "utf8"));
 
-  const imgMeta = await sharp(screenshotPath).metadata();
+  const imgMeta = imageSize(screenshotPath);
   const sectionPaths = await cropSections(screenshotPath, desktopSections, sectionsDir, imgMeta.width);
   savedMeta.sections = sectionPaths;
 
   if (mobileSections?.length && savedMeta.mobile?.screenshotPath) {
     const mobileSectionsDir = join(sitePaths(url).outputDir, "mobile-sections");
-    const mobileImg = await sharp(savedMeta.mobile.screenshotPath).metadata();
+    const mobileImg = imageSize(savedMeta.mobile.screenshotPath);
     const mobileSectionPaths = await cropSections(savedMeta.mobile.screenshotPath, mobileSections, mobileSectionsDir, mobileImg.width);
     savedMeta.mobile.sections = mobileSectionPaths;
   }
