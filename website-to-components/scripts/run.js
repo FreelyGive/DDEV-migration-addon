@@ -132,22 +132,41 @@ Output dir: website-to-components/output/${siteSlug(url)}/
 
 ## Step 1 — Detect sections and crop (FIRST)
 
-Use the \`visual-page-section-segmentation\` skill on both screenshots to detect
-section boundaries, then call \`applySections()\` to crop them.
+**START FROM THE DOM-MEASURED BOUNDS — do NOT pixel-estimate off the screenshot.**
+The screenshot job already measured the page's REAL section boundaries from the
+live DOM (via getBoundingClientRect) and wrote them to:
+
+\`website-to-components/output/${siteSlug(url)}/dom-sections.json\`
+
+These bounds are accurate and contiguous — they never cut through a component,
+because they ARE the component containers. Read this file FIRST. Your job is to
+**REFINE** these bounds with the \`visual-page-section-segmentation\` skill, not
+to re-estimate them:
+- **Merge** when the DOM split something that's visually one section (e.g. a bare
+  navbar block above a hero → one hero section).
+- **Split** only when one DOM block visually contains two distinct sections.
+- **Label** each section and give a short reason.
+- Keep \`y\`/\`height\` snapped to the DOM bounds unless you are splitting/merging.
+
+If \`dom-sections.json\` has \`{ "error": ... }\` (no reliable DOM structure — rare),
+THEN fall back to visual estimation from the screenshot, being careful never to
+cut through text or a component.
 
 **Desktop screenshot:** ${desktopScreenshot}
 ${mobileScreenshot ? `**Mobile screenshot:** ${mobileScreenshot}` : "*(mobile skipped)*"}
 
-Run this in the Node.js environment (inside the DDEV nodejs container):
+Then crop. \`applySections()\` validates the bounds before cropping (rejects
+overlaps, clamps to page height, warns on gaps and on any section spanning >70%
+of the page — the "grabbed the whole page" bug). Heed its warnings.
 
 \`\`\`js
 import { applySections } from "./website-to-components/jobs/02-split-sections.js";
-// After detecting sections with the skill, call:
+// After refining the DOM bounds with the skill, call:
 await applySections("${url}", desktopSections, mobileSections);
 \`\`\`
 
 Where \`desktopSections\` and \`mobileSections\` are arrays of:
-\`{ label, y, height, width, reason }\` — parsed from the skill's markdown output.
+\`{ label, y, height, width, reason }\` — refined from \`dom-sections.json\`.
 
 ## Step 2 — Detect components
 
@@ -162,7 +181,7 @@ node website-to-components/scripts/finish.js ${url}
 
 ## Step 4 — Build components
 
-Build all detected components into \`canvas/src/components/\` (one folder per
+Build all detected components into \`storybook/src/components/\` (one folder per
 component: \`index.jsx\` + \`component.yml\`). Follow the \`component-authoring\`
 skill — use Tailwind classes, never inline styles.
 

@@ -2,6 +2,7 @@ import { execSync, spawnSync } from "child_process";
 import { writeFileSync } from "fs";
 import { sitePaths, ensureDir } from "../lib/paths.js";
 import { paintVideoIframes } from "../lib/video-iframes.js";
+import { measureSections } from "./01c-measure-sections.js";
 
 function browserEval(js) {
   const result = spawnSync("agent-browser", ["eval", "--stdin"], {
@@ -171,6 +172,17 @@ export async function run(url) {
 
   console.log("Taking full-page screenshot...");
   execSync(`agent-browser screenshot "${screenshotPath}" --full`, { stdio: "inherit" });
+
+  // Measure REAL section boundaries from the live DOM while it's still open and
+  // fully rendered. These accurate, contiguous bounds are the starting point for
+  // Step 3 (vision refines/labels them) instead of pixel-estimating off the
+  // downscaled screenshot — which cut through components. → dom-sections.json
+  console.log("Measuring section boundaries from the DOM...");
+  try {
+    measureSections(url);
+  } catch (e) {
+    console.log(`  DOM section measurement failed (${e.message}); vision will estimate.`);
+  }
 
   console.log("Closing browser...");
   execSync("agent-browser close", { stdio: "inherit" });
