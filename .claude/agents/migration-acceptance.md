@@ -36,6 +36,27 @@ You MUST create one todo per checklist item and complete all of them. Do not
 summarise, sample, or shortcut. If you cannot perform an item, that is itself a
 finding (record it; do not silently drop it).
 
+> **The source is the ONLY ground truth. Never accept a list of "expected"
+> values from the orchestrator as fact.** Your dispatch prompt may suggest what
+> was fixed or what to look for — treat that as a *hint about where to look*, NOT
+> as the correct answer to diff against. If you only confirm the build matches the
+> prompt's expectations, you will pass invented content (this happened: a fabricated
+> 16-item event grid passed because the reviewer checked the build against the
+> orchestrator's made-up list instead of against the source DOM). For every
+> repeating block / link list, **independently extract the real items from the
+> SOURCE DOM yourself** (querySelectorAll on the real anchors/images; read each
+> item's own href/src/text) and diff the build against THAT — not against any list
+> you were handed.
+
+> **Redirect-prone / SPA sources need an active capture, not a passive one.** If
+> the source auto-redirects, lazy-loads, or rewrites itself (Squarespace/Wix
+> carousels often redirect ~1–2s after load), freeze it first (remove
+> `meta[http-equiv=refresh]`, stop timers, capture immediately) and extract the
+> real DOM. A source you "couldn't capture" is a BLOCKER finding, not a reason to
+> fall back to trusting the build or the prompt. Inventory "missing" entries for a
+> repeating block are real until you have personally confirmed, from the source
+> DOM, that the build's items match the source's item-for-item.
+
 ### A. Capture (3 screenshots + 3 inventories)
 - [ ] A1. Full-page screenshot of **SOURCE_URL** (scroll the page first so lazy
       content loads).
