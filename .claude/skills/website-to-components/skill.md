@@ -29,6 +29,88 @@ Then tell Claude: `clone https://example.com` or `build a component from the nav
 
 Claude handles everything from that point — screenshots, section detection, font extraction, component builds, Storybook validation — running continuously until done.
 
+## The canonical migration process (ALWAYS follow this order)
+
+Every migration **and every later tweak** — even a one-line content or component
+change — follows this end-to-end process in order. Do not skip steps and do not
+reorder them. The steps that bite hardest when skipped are the QA gates and the
+"capture/understand" front end (skipping it is how invented content and missed
+elements creep in).
+
+1. **Capture** — load the real page (scroll-stitch full-page screenshot; for
+   bot-walled sites connect over CDP to a cleared tab) and the source HTML/DOM.
+2. **Understand the page** — its **layout** (sections/grid/columns), **content**
+   (every heading, paragraph, list item, link+href, icon, image — captured
+   VERBATIM, inventing nothing), **structure** (repeating blocks → enumerate the
+   complete list with every field of every item), and **styles** (colours, fonts,
+   spacing, dark/gradient/glass effects → tokens).
+3. **Build / reuse components** — audit existing components first; reuse where one
+   fits, build only genuinely new ones. Repeatable items use the parent/child
+   slot pattern; nav uses a slot; blank values hide (see the component-authoring
+   skill).
+4. **Build component stories** — every component gets its own Storybook story with
+   realistic content (and an empty-prop variant).
+5. **QA components** — verify each component in Storybook: all props render, slots
+   accept children, source-vs-build element parity for that component, multiple
+   viewports.
+6. **Build page stories** — assemble the components per page in a Storybook page
+   story, with the real captured content (slot children placed).
+7. **QA pages (Storybook)** — verify each assembled page story against the source:
+   run the element-inventory parity audit; every source element must appear with
+   the correct value.
+8. **Deploy to Source** — push components + compiled CSS, upload images as media
+   and rewire paths, then create/update the page nodes via the page builder
+   (see the canvas-push-remote skill).
+9. **QA pages deployed to Source** — re-run the element-inventory parity audit
+   against the LIVE Acquia page (cache-busted — the CDN can serve stale HTML).
+   Fix any gap and redeploy. The deployed page, not the Storybook story, is the
+   deliverable — but keep the Storybook page story in sync so the two never
+   diverge.
+
+> **Tweaks follow the same loop.** Changing a component or a page's content is not
+> a shortcut past steps 1–2 and 5/7/9: re-capture/understand what the source
+> actually shows, then re-QA the component, the Storybook page, AND the deployed
+> page. A change applied to only one of (component / Storybook story / live page)
+> leaves them out of sync.
+
+### Step 10 — Acceptance review (the "big boss" gate)
+
+After steps 1–9, dispatch the **`migration-acceptance` subagent** (the
+"big boss"; defined in `.claude/agents/migration-acceptance.md`) — the overseer
+that signs off the whole migration. It is independent of the build: it does not
+trust that prior steps succeeded, it **re-verifies against the source** and
+follows a mandatory, no-skip checklist. Dispatch one per page (run in parallel)
+and once for the site overall. It compares, for each page, the **source URL**
+against BOTH outputs — the **generated Storybook page story** and the **deployed
+Acquia Source page** — on three axes:
+
+- **Structure** — same sections in the same order; repeating blocks have the same
+  item count; nothing dropped or invented.
+- **Content** — every heading, paragraph, list item, link (label + href), icon,
+  and image present with the **correct, verbatim** value (no fabricated text, no
+  wrong roles/titles). Use the element-inventory parity audit as the mechanical
+  backbone, plus a vision read of the screenshots for things the text diff misses.
+- **Design** — layout, colours, fonts, spacing and component styling match the
+  source; the Storybook page and the live page match each other.
+
+**Output: a findings file**, not a pass/fail vibe. Write
+`output/<host>/acceptance-findings.md` (or `.json`) listing every discrepancy as
+`{ page, axis (structure|content|design), where (source vs storybook vs acquia),
+detail, severity }`. Cache-bust the live URL — the CDN serves stale HTML.
+
+**If the findings file is non-empty, the migration is NOT done.** Re-enter the
+process at the earliest step each finding implicates (a wrong/missing value →
+back to step 2 capture/understand for that section; a Storybook/Acquia
+divergence → rebuild the out-of-date one; a design mismatch → component styling),
+fix **only** the findings, then re-run Step 10. Loop until the findings file is
+empty. Only an empty findings file is acceptance.
+
+> This gate exists because earlier steps' self-checks can pass while content was
+> still invented or an output drifted. The big-boss review trusts nothing and
+> measures everything against the source — it is the last line that catches
+> missing icons, wrong roles, dropped sections, and Storybook-vs-Acquia drift
+> before the user does.
+
 ## How a domain URL is handled
 
 When the user provides a single URL like `https://example.com`, treat it as a **multi-page clone request by default**:
@@ -84,17 +166,17 @@ Every **genuinely new** component built by this pipeline (one that survived the 
 - Take the primary domain name (strip `www.`, TLD, and hyphens)
 - Use the first 3 letters, uppercased for PascalCase and lowercased for snake_case
 - Examples:
-  - `freelygive.io` → `frg` → `FrgNavbar` / `frg_navbar`
+  - `example.com` → `ex` → `ExNavbar` / `ex_navbar`
   - `example.com` → `exa` → `ExaHero` / `exa_hero`
   - `2comweb-telefoniabusiness.it` → `tco` (skip leading digit, use first 3 letters of meaningful word) → `TcoCard` / `tco_card`
   - `acquia.com` → `acq` → `AcqFooter` / `acq_footer`
 
 **Rules:**
-- `machineName` in `component.yml`: `<3-letter-prefix>_<component_name>` (snake_case, e.g. `frg_primary_button`)
-- Component folder: matches `machineName` exactly (`storybook/src/components/frg_primary_button/`)
-- React component name in JSX: PascalCase with prefix (`FrgPrimaryButton`)
-- Import alias: `import FrgPrimaryButton from '@/components/frg_primary_button'`
-- Story title: `'<Site Name>/<Component Display Name>'` (e.g. `'FreelyGive/Primary Button'`)
+- `machineName` in `component.yml`: `<3-letter-prefix>_<component_name>` (snake_case, e.g. `ex_primary_button`)
+- Component folder: matches `machineName` exactly (`storybook/src/components/ex_primary_button/`)
+- React component name in JSX: PascalCase with prefix (`ExPrimaryButton`)
+- Import alias: `import ExPrimaryButton from '@/components/ex_primary_button'`
+- Story title: `'<Site Name>/<Component Display Name>'` (e.g. `'<SiteName>/Primary Button'`)
 
 **Determine the prefix at the very start of the pipeline** (Step 0 / Step 3) and use it consistently for every component throughout the run. Never mix prefixes within a single site clone.
 
