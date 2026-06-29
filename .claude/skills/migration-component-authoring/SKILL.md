@@ -59,6 +59,22 @@ value from the source DOM, leave the field blank rather than invent one — a bl
 is honest and (with conditional rendering) simply doesn't display. Capture real
 text from the source DOM, not from memory or assumption.
 
+**The subtle invention trap — extrapolating a field from a sibling item.** When a
+repeating block has a field you only captured for *some* items (a blog card's
+author/date/excerpt, a price, a badge), do NOT copy a plausible-looking value from
+another item or paraphrase/shorten the real one. Two real defects this caused:
+a blog card given the date of a *different* post and a wholly fabricated excerpt;
+and card titles silently *paraphrased* ("DrupalCon Amsterdam 2019 privacy panel")
+instead of the verbatim source title ("DrupalCon Amsterdam 2019 panel: The
+Proposed Drupal Privacy Initiative"). Both passed a casual glance and were only
+caught by the acceptance reviewer. Rule: a repeating-block field is either
+**captured verbatim from that item's own DOM** or **left blank** — never inferred,
+never paraphrased, never borrowed from a sibling. If meta is missing for some
+items, re-capture it from the source (a quick focused capture pass) rather than
+guess; preserve real CMS quirks verbatim (a repeated teaser line, a double space,
+a missing space between concatenated lines) — those are the source, not noise to
+"clean up".
+
 ### B. Repeating blocks: build the COMPLETE list, with every field of every item
 
 When a section is a **sequence of similar blocks** — team members, logos, cards,

@@ -55,6 +55,20 @@ elements creep in).
    viewports.
 6. **Build page stories** — assemble the components per page in a Storybook page
    story, with the real captured content (slot children placed).
+   > **Drift-proof the story: render it FROM the deployed page-definition.**
+   > The single biggest source of "Storybook ≠ Acquia" findings is a hand-written
+   > page story whose copy silently drifts from what the page builder deploys (an
+   > old hero heading, an invented intro line, a stale section). Eliminate the
+   > whole class structurally: keep ONE data file — the page-definitions the
+   > builder deploys (the `[{title, alias, components:[{machine, ref/parentRef,
+   > slot, inputs}]}]` list) — and have each page story render that same data
+   > through a tiny generic renderer that maps `machine` → component and rebuilds
+   > slot children from `parentRef`/`slot`. Generate the page-defs once (from the
+   > captured content), write them into both the deploy path AND the Storybook src
+   > tree, and import them in the stories. Then a story can no longer carry copy
+   > the deploy doesn't have — change the captured content, regenerate, and both
+   > outputs move together. (Keep per-component stories hand-written for the
+   > component library; it's the *page* stories that must mirror the deploy.)
 7. **QA pages (Storybook)** — verify each assembled page story against the source:
    run the element-inventory parity audit; every source element must appear with
    the correct value.
