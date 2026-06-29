@@ -35,45 +35,81 @@ function browserEval(js) {
   return result.stdout?.trim() ?? "";
 }
 
+/**
+ * Decode the raw stdout of `agent-browser eval` into the measurement object.
+ *
+ * `agent-browser eval` JSON-encodes the page's return value, and the page
+ * script itself returns a JSON string — so the result arrives DOUBLE-encoded.
+ * A single JSON.parse yields a *string*, whose `.sections` is undefined, which
+ * is what made the job report "No reliable DOM sections" even on a successful
+ * measurement and push vision into estimating bounds off the screenshot.
+ * Parse up to twice and accept whichever pass produces an object; on anything
+ * unparseable, return a `measure-failed` marker (vision then estimates).
+ */
+export function parseMeasureResult(raw) {
+  try {
+    let v = JSON.parse(raw);
+    if (typeof v === "string") v = JSON.parse(v);
+    if (typeof v !== "object" || v === null) throw new Error("not an object");
+    return v;
+  } catch {
+    return { error: "measure-failed", raw: (raw ?? "").slice(0, 200) };
+  }
+}
+
 // The measurement script, run in the page context. Picks the container whose
-// direct children best tile the page vertically, returns those children as
-// contiguous sections covering the full page height (top→footer→bottom).
-const MEASURE_JS = `(() => {
-  const PW = document.documentElement.scrollWidth;
-  const PH = document.documentElement.scrollHeight;
+// direct children best tile the page vertically, then captures any full-width
+// sibling blocks (header/footer) that sit OUTSIDE that container above or below
+// it — so the footer becomes its own section instead of being swallowed by the
+// last child. Returns contiguous, gap-free sections covering the full page.
+//
+// NOTE: this is wrapped as a `function`-keyword IIFE, NOT an arrow IIFE.
+// `agent-browser eval` parses `(function(){…}())` but throws
+// `SyntaxError: Unexpected token '('` on `(() => {…}())`. Using the arrow form
+// made every measurement silently fail → dom-sections.json = "measure-failed"
+// → vision fell back to estimating bounds off the downscaled screenshot, which
+// is what produced merged/bleeding section crops. Keep this a `function` IIFE.
+export const MEASURE_JS = `(function () {
+  var PW = document.documentElement.scrollWidth;
+  var PH = document.documentElement.scrollHeight;
+
+  function measure(el) {
+    var r = el.getBoundingClientRect();
+    return {
+      el: el,
+      top: Math.round(r.top + window.scrollY),
+      bottom: Math.round(r.bottom + window.scrollY),
+      h: Math.round(r.height),
+      w: r.width,
+    };
+  }
+  function isWide(m) { return m.h >= 30 && m.w >= PW * 0.5; }
 
   // Score a container by how well its wide, non-trivial direct children tile
   // the page vertically. Returns null if it has fewer than 2 usable children.
   function score(container) {
     if (!container) return null;
-    const kids = [...container.children].map(el => {
-      const r = el.getBoundingClientRect();
-      return {
-        el,
-        top: Math.round(r.top + window.scrollY),
-        h: Math.round(r.height),
-        w: r.width,
-      };
-    }).filter(k => k.h >= 30 && k.w >= PW * 0.5);
+    var kids = [].slice.call(container.children).map(measure).filter(isWide);
     if (kids.length < 2) return null;
-    kids.sort((a, b) => a.top - b.top);
-    const covered = kids.reduce((s, k) => s + k.h, 0);
-    return { container, kids, coverage: covered / PH, n: kids.length };
+    kids.sort(function (a, b) { return a.top - b.top; });
+    var covered = kids.reduce(function (s, k) { return s + k.h; }, 0);
+    return { container: container, kids: kids, coverage: covered / PH, n: kids.length };
   }
 
   // Candidate containers, broad to narrow. We prefer the one with the best
   // vertical coverage and a sane section count (avoid a wrapper that is just
   // ONE full-page child — that is the "grabbed the whole page" failure mode).
-  const cands = [
-    ...document.querySelectorAll('main, [role="main"], article, .sections, [class*="page-section"], #content, .content, .site-content, .region-content'),
-    document.body,
-  ];
-  let best = null;
-  for (const c of cands) {
-    const s = score(c);
+  var cands = [].slice.call(document.querySelectorAll(
+    'main, [role="main"], article, .sections, [class*="page-section"], #content, .content, .site-content, .region-content'
+  ));
+  cands.push(document.body);
+
+  var best = null;
+  for (var ci = 0; ci < cands.length; ci++) {
+    var s = score(cands[ci]);
     if (!s) continue;
     // Reject containers whose single biggest child is basically the whole page.
-    const maxChild = Math.max(...s.kids.map(k => k.h));
+    var maxChild = Math.max.apply(null, s.kids.map(function (k) { return k.h; }));
     if (maxChild > PH * 0.85 && s.n <= 2) continue;
     if (!best ||
         s.coverage > best.coverage + 0.05 ||
@@ -83,30 +119,68 @@ const MEASURE_JS = `(() => {
   }
   if (!best) return JSON.stringify({ error: 'no-suitable-container', pageWidth: PW, pageHeight: PH });
 
-  // Build contiguous, gap-free, full-page-covering sections from the chosen
-  // children: each section spans from its own top to the NEXT child's top, and
-  // the last one extends to the page bottom (captures the footer too).
-  const tops = best.kids.map(k => k.top);
-  const sections = best.kids.map((k, i) => {
-    const top = Math.max(0, i === 0 ? 0 : tops[i]);
-    const bottom = i === best.kids.length - 1 ? PH : tops[i + 1];
+  // Full-width blocks that live OUTSIDE the chosen container (siblings of it, or
+  // of its ancestors) and sit above/below it. The footer is the common case:
+  // it's a sibling of <article.sections>, so the scorer never saw it and the old
+  // code extended the last child to PH, merging the footer into it. Collect them
+  // so each becomes its own section. We only take blocks NOT contained in best.
+  var containerRect = measure(best.container);
+  var outerBlocks = [];
+  var seen = [best.container];
+  for (var node = best.container; node && node !== document.body && node.parentElement; node = node.parentElement) {
+    var sibs = [].slice.call(node.parentElement.children);
+    for (var si = 0; si < sibs.length; si++) {
+      var sib = sibs[si];
+      if (sib === node || best.container.contains(sib) || sib.contains(best.container)) continue;
+      var m = measure(sib);
+      if (!isWide(m)) continue;
+      // Skip overlay/absolute chrome that overlaps the container's vertical span.
+      if (m.bottom > containerRect.top && m.top < containerRect.bottom) continue;
+      if (seen.indexOf(sib) !== -1) continue;
+      seen.push(sib);
+      outerBlocks.push(m);
+    }
+  }
+
+  // Boundary list: each kid plus each outer block, as {top, bottom, tag, cls}.
+  var blocks = best.kids.map(function (k) {
+    return { top: k.top, bottom: k.bottom, el: k.el };
+  }).concat(outerBlocks.map(function (m) {
+    return { top: m.top, bottom: m.bottom, el: m.el };
+  }));
+  blocks.sort(function (a, b) { return a.top - b.top; });
+
+  // Build contiguous, gap-free sections. Each section spans from its own top to
+  // the NEXT block's top; the first starts at 0; the last extends to the larger
+  // of its own DOM bottom and PH (so trailing whitespace/footer tail is covered)
+  // — but it no longer swallows a real footer, because the footer is now its own
+  // block in the list.
+  var tops = blocks.map(function (b) { return b.top; });
+  var sections = blocks.map(function (b, i) {
+    var top = Math.max(0, i === 0 ? 0 : tops[i]);
+    var bottom = i === blocks.length - 1 ? Math.max(b.bottom, PH) : tops[i + 1];
     return {
       y: top,
       height: Math.max(1, bottom - top),
-      top,
-      bottom,
-      tag: k.el.tagName.toLowerCase(),
-      cls: (k.el.className || '').toString().replace(/\\s+/g, ' ').trim().slice(0, 60),
+      top: top,
+      bottom: bottom,
+      tag: b.el.tagName.toLowerCase(),
+      cls: (b.el.className || '').toString().replace(/\\s+/g, ' ').trim().slice(0, 60),
+      // Whether this block contains its own heading. Lets a downstream refiner
+      // tell a real (compact) section from a headingless tail-fragment (a lone
+      // CTA/divider the DOM split out) that should merge into the section above.
+      hasHeading: !!(b.el.querySelector && b.el.querySelector('h1,h2,h3,h4,[role="heading"]')),
     };
   });
 
+  var covered2 = sections.reduce(function (s, sec) { return s + sec.height; }, 0);
   return JSON.stringify({
     pageWidth: PW,
     pageHeight: PH,
     container: (best.container.tagName + '.' + (best.container.className || '')).replace(/\\s+/g, '.').slice(0, 60),
-    coverage: +best.coverage.toFixed(2),
+    coverage: +(covered2 / PH).toFixed(2),
     sectionCount: sections.length,
-    sections,
+    sections: sections,
   });
 }())`;
 
@@ -120,12 +194,9 @@ export function measureSections(url) {
   const outPath = `${outputDir}/dom-sections.json`;
 
   const raw = browserEval(MEASURE_JS);
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
+  const parsed = parseMeasureResult(raw);
+  if (parsed.error === "measure-failed") {
     console.log(`  DOM section measurement returned no parseable result; vision will fall back to estimation.`);
-    parsed = { error: "measure-failed", raw: raw.slice(0, 200) };
   }
 
   writeFileSync(outPath, JSON.stringify(parsed, null, 2));
