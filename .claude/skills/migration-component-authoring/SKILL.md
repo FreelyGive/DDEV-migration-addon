@@ -95,7 +95,20 @@ a list and reproduce **all** of it:
    each item, not by guessing order across a flat text dump. Beware
    builder-injected noise (Squarespace/Wix emit inline `<style>`/CSS as text
    nodes, and duplicate `<li>` as `<p>`); filter to real content and de-duplicate.
-4. **Record the list as data** (an array the component/page consumes), so the
+4. **A field belongs to ONE item — assign it from within that item's own block,
+   NEVER by sequential order across the section.** This is the trap behind the
+   most common links bug. When a field is present for only *some* items — e.g. a
+   team where every person has a Drupal.org link but only 5 of 10 also have a
+   LinkedIn link — do NOT collect the section's links into one flat pool and hand
+   them out in order (the first 5 LinkedIn URLs to the first 5 people, etc.). That
+   silently drops every link of a *different* type and mis-assigns the rest. For
+   EACH item, open that item's own container and read only the links inside it;
+   some items will have one link, some two, some none — record exactly what that
+   item holds. **This rule is independent of how you output the result** — JSON
+   array, markdown table, or one row per person all require the same per-item
+   read. If your output format is a flat list of rows, you must STILL have built
+   each row from its own item's block, not by zipping a pool of links onto names.
+5. **Record the list as data** (an array the component/page consumes), so the
    count and every field are explicit and reviewable — not buried in prose.
 
 ### Element inventory (the QA gate against missed elements)
