@@ -1,0 +1,79 @@
+{
+  "skill_name": "migration-component-authoring",
+  "skill_file": ".claude/skills/migration-component-authoring/SKILL.md",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm migrating this website section into a component. The source is in evals/fg-content-mapping/ — passionate-professionals.png (the rendered section) and passionate-professionals.html (its markup). Read them and give me the section's content as JSON with this shape so I can wire it into the component: { \"title\": ..., \"peopleCount\": ..., \"people\": [ { \"name\": ..., \"jobTitles\": [...], \"links\": [...] } ] }. The links must be the real profile URLs from the source. Put the JSON in a ```json code block.",
+      "expected_output": "A complete JSON roster of all 10 team members. The section title is 'Meet our team of passionate professionals'. peopleCount is exactly 10. Every name, every job-title line, and every profile link is captured per person, using the exact href URLs from the HTML source (e.g. https://www.drupal.org/u/yautja_cetanu for Jamie Abrahams, https://www.drupal.org/u/andrewbelcher for Andrew Belcher). People with no LinkedIn (e.g. Yan, Jeremy) get no fabricated one. Nothing is invented, dropped, paraphrased, or borrowed from a sibling item.",
+      "expectations": [
+        "Section title captured verbatim: 'Meet our team of passionate professionals'",
+        "peopleCount is exactly 10 and all 10 names are present",
+        "All ten names present: Jamie Abrahams, Andrew Belcher, David Lynch, Debbie Smith, Catia Penas, Yan Loetzer, Jeremy Skinner, Mark Jones, Mark Berry, Marcus Johansson",
+        "Multi-line job titles preserved (Jamie: Director / Digital Architect / AI Consultant; Andrew: Director / Lead Developer / System Administrator)",
+        "Exact profile URLs from the HTML, NOT just the platform: Jamie https://www.drupal.org/u/yautja_cetanu + https://www.linkedin.com/in/james-abrahams-62ab0418/; Andrew https://www.drupal.org/u/andrewbelcher + https://www.linkedin.com/in/andrew-belcher-309561201/; David https://uk.linkedin.com/in/david-lynch-7a87647; Debbie https://www.linkedin.com/in/debbie-smith-2063934b/; Catia https://www.drupal.org/u/catia_penas + https://www.linkedin.com/in/catiapenas/; Yan https://www.drupal.org/u/yanniboi; Jeremy https://www.drupal.org/u/jeremyskinner; Mark Jones https://www.drupal.org/u/justanothermark; Mark Berry https://www.drupal.org/u/mjb3141; Marcus https://www.drupal.org/u/marcus_johansson",
+        "People with no LinkedIn (Yan, Jeremy, Mark Jones, Mark Berry, Marcus) are not given a fabricated one",
+        "Output is a single valid JSON object inside one json code block"
+      ],
+      "must_contain_any": [
+        "drupal.org/u/yautja_cetanu"
+      ],
+      "must_not_contain": [
+        "\"peoplecount\": 8",
+        "\"peoplecount\": 9",
+        "\"peoplecount\": 11"
+      ],
+      "check_markdown_structure": {
+        "min_code_blocks": 1,
+        "forbidden_patterns": [
+          "and so on",
+          "remaining team members",
+          "other members",
+          "for brevity",
+          "https://www.linkedin.com/in/yan",
+          "https://www.linkedin.com/in/jeremy",
+          "https://www.linkedin.com/in/mark",
+          "https://www.linkedin.com/in/marcus",
+          "drupal.org/u/david",
+          "drupal.org/u/debbie"
+        ]
+      }
+    },
+    {
+      "id": 2,
+      "prompt": "Read the image at evals/fg-content-mapping/passionate-professionals.png. I'm rebuilding this team section. Tell me, each on its own line in 'Field: value' form: 'Title:' the section heading, 'Count:' how many people it shows, and 'Names:' the people's names as a comma-separated list.",
+      "expected_output": "Title: Meet our team of passionate professionals. Count: 10. Names lists all ten people in reading order: Jamie Abrahams, Andrew Belcher, David Lynch, Debbie Smith, Catia Penas, Yan Loetzer, Jeremy Skinner, Mark Jones, Mark Berry, Marcus Johansson.",
+      "expectations": [
+        "Title line equals 'Meet our team of passionate professionals'",
+        "Count line is 10",
+        "All ten names listed, none missing, none invented"
+      ],
+      "must_contain_any": [
+        "meet our team of passionate professionals"
+      ],
+      "must_not_contain": [
+        "count: 8",
+        "count: 9",
+        "count: 11",
+        "count: 12"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "The source for a team section is in evals/fg-content-mapping/ — passionate-professionals.png (rendered) and passionate-professionals.html (markup). I'm rebuilding it as a component and need each person as a row. Give me one line per person: '<name> | <job title(s)> | <profile links>', where the profile links are the real URLs from the source.",
+      "expected_output": "Ten lines, one per person, each with that person's real job title(s) and the exact profile URLs from the HTML source. Jamie and Catia have both a drupal.org and a linkedin URL; David and Debbie have only linkedin; Yan, Jeremy, Mark Jones, Mark Berry, Marcus have only drupal.org; Andrew has both. Example exact URLs: Jamie https://www.drupal.org/u/yautja_cetanu, Andrew https://www.drupal.org/u/andrewbelcher, Yan https://www.drupal.org/u/yanniboi.",
+      "expectations": [
+        "Each of the 10 people gets exactly one line with their own correct fields",
+        "Job titles are per-person and not borrowed from a sibling (Directors are Directors; Developers are Developers)",
+        "Profile links are the exact href URLs from the HTML (e.g. https://www.drupal.org/u/marcus_johansson), not just 'drupal.org' / 'linkedin'",
+        "People with only a Drupal profile are not given a fabricated LinkedIn URL, and vice versa"
+      ],
+      "must_contain_any": [
+        "drupal.org/u/marcus_johansson"
+      ],
+      "must_not_contain": [
+        "marcus johansson | director"
+      ]
+    }
+  ]
+}

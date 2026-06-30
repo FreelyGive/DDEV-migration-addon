@@ -1,0 +1,56 @@
+{
+  "title": "Meet our team of passionate professionals",
+  "peopleCount": 10,
+  "people": [
+    {
+      "name": "Jamie Abrahams",
+      "jobTitles": ["Director", "Digital Architect", "AI Consultant"],
+      "links": ["https://www.drupal.org/u/yautja_cetanu", "https://www.linkedin.com/in/james-abrahams-62ab0418/"]
+    },
+    {
+      "name": "Andrew Belcher",
+      "jobTitles": ["Director", "Lead Developer", "System Administrator"],
+      "links": ["https://www.drupal.org/u/andrewbelcher", "https://www.linkedin.com/in/andrew-belcher-309561201/"]
+    },
+    {
+      "name": "David Lynch",
+      "jobTitles": ["Director"],
+      "links": ["https://uk.linkedin.com/in/david-lynch-7a87647"]
+    },
+    {
+      "name": "Debbie Smith",
+      "jobTitles": ["Head of Delivery & Growth"],
+      "links": ["https://www.linkedin.com/in/debbie-smith-2063934b/"]
+    },
+    {
+      "name": "Catia Penas",
+      "jobTitles": ["Project Manager"],
+      "links": ["https://www.drupal.org/u/catia_penas", "https://www.linkedin.com/in/catiapenas/"]
+    },
+    {
+      "name": "Yan Loetzer",
+      "jobTitles": ["Tech Lead"],
+      "links": ["https://www.drupal.org/u/yanniboi"]
+    },
+    {
+      "name": "Jeremy Skinner",
+      "jobTitles": ["Developer"],
+      "links": ["https://www.drupal.org/u/jeremyskinner"]
+    },
+    {
+      "name": "Mark Jones",
+      "jobTitles": ["Developer"],
+      "links": ["https://www.drupal.org/u/justanothermark"]
+    },
+    {
+      "name": "Mark Berry",
+      "jobTitles": ["Developer"],
+      "links": ["https://www.drupal.org/u/mjb3141"]
+    },
+    {
+      "name": "Marcus Johansson",
+      "jobTitles": ["Developer"],
+      "links": ["https://www.drupal.org/u/marcus_johansson"]
+    }
+  ]
+}

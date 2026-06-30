@@ -14,6 +14,7 @@ project_files:
   - .claude/skills/acquia-source-docs-explorer
   - .claude/skills/typography-audit
   - .claude/skills/webpage-sections-splitter
+  - .claude/evals
 global_files: []
 pre_install_actions: []
 post_install_actions:
@@ -24,10 +25,14 @@ post_install_actions:
       rm -rf "${DDEV_APPROOT}/.ddev/website-to-components"
     fi
   - |
-    #ddev-description:Move Claude skills from .ddev to project root
+    #ddev-description:Move Claude skills and evals from .ddev to project root
     if [ -d "${DDEV_APPROOT}/.ddev/.claude" ]; then
       mkdir -p "${DDEV_APPROOT}/.claude/skills"
       cp -r "${DDEV_APPROOT}/.ddev/.claude/skills/." "${DDEV_APPROOT}/.claude/skills/"
+      if [ -d "${DDEV_APPROOT}/.ddev/.claude/evals" ]; then
+        mkdir -p "${DDEV_APPROOT}/.claude/evals"
+        cp -r "${DDEV_APPROOT}/.ddev/.claude/evals/." "${DDEV_APPROOT}/.claude/evals/"
+      fi
       rm -rf "${DDEV_APPROOT}/.ddev/.claude"
     fi
   - "echo ''"
@@ -38,4 +43,18 @@ post_install_actions:
   - "echo 'Whole-site scope (--scope site) reads sitemap.xml and auto-validates URLs over HTTP.'"
   - "echo 'Validation checks HTTP 200, no redirects, no noindex, and canonical self-reference.'"
   - "echo 'Falls back to menu-reachable discovery if no sitemap found. No external dependency required.'"
-removal_actions: []
+  - "echo 'Skill evals installed to .claude/evals; they wire onto the ai_best_practices harness on ddev restart (if the module is installed). See .claude/evals/README.md.'"
+removal_actions:
+  - |
+    #ddev-description:Remove the eval->skills symlink wired into ai_best_practices
+    # Host action: DDEV_APPROOT is reliable, DDEV_DOCROOT may be unset, so try the
+    # default docroot first and otherwise locate the vendored module by glob.
+    for ABP in \
+      "${DDEV_APPROOT}/${DDEV_DOCROOT:-web}/vendor/drupal/ai_best_practices" \
+      "${DDEV_APPROOT}"/*/vendor/drupal/ai_best_practices \
+      "${DDEV_APPROOT}/vendor/drupal/ai_best_practices"; do
+      if [ -L "${ABP}/.claude/skills" ]; then
+        rm -f "${ABP}/.claude/skills"
+        rmdir "${ABP}/.claude" 2>/dev/null || true
+      fi
+    done
