@@ -11,7 +11,7 @@ module, which must already be installed in the project.
 | Piece | Provided by | Location |
 | --- | --- | --- |
 | Eval runner (`run-evals.py`, `providers.py`, `compare.py`) | `ai_best_practices` module | `web/vendor/drupal/ai_best_practices/evals/` |
-| Per-eval payload (`fg-content-mapping/`, …) | **this addon** | `.claude/evals/` |
+| Per-eval payload (`fg-content-mapping/`, …) | **this addon** | `evals/` |
 | Skill under test (e.g. `migration-component-authoring`) | **this addon** | project `.claude/skills/` |
 
 The runner resolves every eval's `skill_file` path **relative to the module
@@ -37,9 +37,9 @@ does both automatically (see [Setup](#setup--automatic)).
 
 The wiring is handled for you, so **you normally don't run any of the commands in
 this section**. Installing the addon copies the eval payloads into the project
-(`.claude/evals/`), and a `post-start` hook then, on every `ddev restart`:
+(`evals/`), and a `post-start` hook then, on every `ddev restart`:
 
-1. Copies each eval payload under `.claude/evals/` into the module's evals
+1. Copies each eval payload under `evals/` into the module's evals
    directory (`web/vendor/drupal/ai_best_practices/evals/`).
 2. Points the module's `.claude/skills` at the project's installed `.claude/skills`
    with a relative symlink, so each eval's `skill_file` path resolves to the
@@ -65,7 +65,7 @@ already-installed module without reinstalling the addon. From the project root:
 ABP="web/vendor/drupal/ai_best_practices"
 
 # 1. Copy each changed eval payload into the module's evals/ directory.
-cp -r .claude/evals/fg-content-mapping "$ABP/evals/"
+cp -r evals/fg-content-mapping "$ABP/evals/"
 
 # 2. (Re)point the module's .claude/skills at the project's installed skills,
 #    so skill_file paths resolve. Idempotent — safe to re-run.
@@ -137,7 +137,7 @@ without re-running the model.
 ## Keeping the copies in sync
 
 `ddev restart` re-copies the eval payloads into the module via the `post-start`
-hook, so editing a case under `.claude/evals/` and restarting is enough to update
+hook, so editing a case under `evals/` and restarting is enough to update
 the module's working copy. The [manual re-sync](#manual-re-sync-development-only)
 does the same thing without a restart. The skill link never needs redoing — it
 tracks the installed skill live.
