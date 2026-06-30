@@ -14,7 +14,7 @@ project_files:
   - .claude/skills/acquia-source-docs-explorer
   - .claude/skills/typography-audit
   - .claude/skills/webpage-sections-splitter
-  - .claude/evals
+  - evals
 global_files: []
 pre_install_actions: []
 post_install_actions:
@@ -25,15 +25,18 @@ post_install_actions:
       rm -rf "${DDEV_APPROOT}/.ddev/website-to-components"
     fi
   - |
-    #ddev-description:Move Claude skills and evals from .ddev to project root
+    #ddev-description:Move Claude skills from .ddev to project root
     if [ -d "${DDEV_APPROOT}/.ddev/.claude" ]; then
       mkdir -p "${DDEV_APPROOT}/.claude/skills"
       cp -r "${DDEV_APPROOT}/.ddev/.claude/skills/." "${DDEV_APPROOT}/.claude/skills/"
-      if [ -d "${DDEV_APPROOT}/.ddev/.claude/evals" ]; then
-        mkdir -p "${DDEV_APPROOT}/.claude/evals"
-        cp -r "${DDEV_APPROOT}/.ddev/.claude/evals/." "${DDEV_APPROOT}/.claude/evals/"
-      fi
       rm -rf "${DDEV_APPROOT}/.ddev/.claude"
+    fi
+  - |
+    #ddev-description:Move skill evals from .ddev to project root
+    if [ -d "${DDEV_APPROOT}/.ddev/evals" ]; then
+      mkdir -p "${DDEV_APPROOT}/evals"
+      cp -r "${DDEV_APPROOT}/.ddev/evals/." "${DDEV_APPROOT}/evals/"
+      rm -rf "${DDEV_APPROOT}/.ddev/evals"
     fi
   - "echo ''"
   - "echo 'Canvas Migration addon installed.'"
@@ -43,7 +46,7 @@ post_install_actions:
   - "echo 'Whole-site scope (--scope site) reads sitemap.xml and auto-validates URLs over HTTP.'"
   - "echo 'Validation checks HTTP 200, no redirects, no noindex, and canonical self-reference.'"
   - "echo 'Falls back to menu-reachable discovery if no sitemap found. No external dependency required.'"
-  - "echo 'Skill evals installed to .claude/evals; they wire onto the ai_best_practices harness on ddev restart (if the module is installed). See .claude/evals/README.md.'"
+  - "echo 'Skill evals installed to evals/; they wire onto the ai_best_practices harness on ddev restart (if the module is installed). See evals/README.md.'"
 removal_actions:
   - |
     #ddev-description:Remove the eval->skills symlink wired into ai_best_practices

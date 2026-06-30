@@ -16,6 +16,11 @@ hooks:
     # installed skills with a RELATIVE symlink (resolves the same on host and in
     # container). Idempotent and guarded: if the module is not vendored yet this is
     # a no-op, and it self-heals on the next `ddev restart` once it is.
+    #
+    # This addon's evals live in the PROJECT's evals/ dir alongside the
+    # ai_best_practices evals (the installer copies the module's evals there too).
+    # Only the migration evals are shipped with a grade.py per directory, so use
+    # that as the marker to avoid re-copying the module's own evals onto itself.
     - exec: |
         APPROOT="/var/www/html"
         # Locate the ai_best_practices module by its eval runner rather than
@@ -36,9 +41,13 @@ hooks:
             -path "*/vendor/drupal/ai_best_practices/evals/run-evals.py" 2>/dev/null | head -n1)
           [ -n "${found}" ] && ABP="${found%/evals/run-evals.py}"
         fi
-        if [ -n "${ABP}" ] && [ -d "${APPROOT}/.claude/evals" ]; then
-          for eval_dir in "${APPROOT}/.claude/evals"/*/; do
+        if [ -n "${ABP}" ] && [ -d "${APPROOT}/evals" ]; then
+          for eval_dir in "${APPROOT}/evals"/*/; do
             [ -d "${eval_dir}" ] || continue
+            # Only sync this addon's own evals, marked by a per-dir grade.py.
+            # The module's evals already live in ${ABP}/evals; skipping the
+            # rest avoids copying them onto themselves.
+            [ -f "${eval_dir}grade.py" ] || continue
             # Strip the trailing slash so the directory itself is copied
             # (cp -r "src/" "dest/" copies CONTENTS, not the dir).
             name=$(basename "${eval_dir}")
