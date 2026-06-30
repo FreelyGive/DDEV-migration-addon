@@ -18,9 +18,25 @@ hooks:
     # a no-op, and it self-heals on the next `ddev restart` once it is.
     - exec: |
         APPROOT="/var/www/html"
-        MODREL="${DDEV_DOCROOT:-web}/vendor/drupal/ai_best_practices"
-        ABP="${APPROOT}/${MODREL}"
-        if [ -f "${ABP}/evals/run-evals.py" ] && [ -d "${APPROOT}/.claude/evals" ]; then
+        # Locate the ai_best_practices module by its eval runner rather than
+        # assuming it sits under ${DDEV_DOCROOT}. The Drupal project may be
+        # nested (composer root under web/, docroot web/web), so vendor/ does
+        # not live at "${DDEV_DOCROOT}/vendor". Probe the common spots, then
+        # fall back to a bounded find. Nothing found -> no-op (self-heals on a
+        # later restart once the module is vendored).
+        ABP=""
+        for cand in \
+          "${APPROOT}/${DDEV_DOCROOT:-web}/vendor/drupal/ai_best_practices" \
+          "${APPROOT}/web/vendor/drupal/ai_best_practices" \
+          "${APPROOT}/vendor/drupal/ai_best_practices"; do
+          if [ -f "${cand}/evals/run-evals.py" ]; then ABP="${cand}"; break; fi
+        done
+        if [ -z "${ABP}" ]; then
+          found=$(find "${APPROOT}" -maxdepth 5 -type f \
+            -path "*/vendor/drupal/ai_best_practices/evals/run-evals.py" 2>/dev/null | head -n1)
+          [ -n "${found}" ] && ABP="${found%/evals/run-evals.py}"
+        fi
+        if [ -n "${ABP}" ] && [ -d "${APPROOT}/.claude/evals" ]; then
           for eval_dir in "${APPROOT}/.claude/evals"/*/; do
             [ -d "${eval_dir}" ] || continue
             # Strip the trailing slash so the directory itself is copied
@@ -31,10 +47,12 @@ hooks:
           done
           mkdir -p "${ABP}/.claude"
           # Relative path from ${ABP}/.claude back up to ${APPROOT}, then into
-          # .claude/skills. The module's .claude is at "${MODREL}/.claude" below
-          # the approot, so prepend one "../" per path segment in "${MODREL}/.claude".
+          # .claude/skills. Derive it from ABP's actual location under APPROOT
+          # (not DDEV_DOCROOT): one "../" per path segment between them, plus one
+          # more for the ".claude" segment the link lives in.
+          modrel="${ABP#${APPROOT}/}"
           up=""
-          rest="${MODREL}/.claude"
+          rest="${modrel}/.claude"
           while [ -n "${rest}" ] && [ "${rest}" != "." ]; do
             up="../${up}"
             case "${rest}" in
