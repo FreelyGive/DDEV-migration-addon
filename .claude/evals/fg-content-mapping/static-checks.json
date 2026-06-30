@@ -1,0 +1,84 @@
+{
+  "skill_file": ".claude/skills/migration-component-authoring/SKILL.md",
+  "assertions": [
+    {
+      "id": "S01",
+      "description": "Skill file exists",
+      "check": "file_exists",
+      "path": ".claude/skills/migration-component-authoring/SKILL.md"
+    },
+    {
+      "id": "S02",
+      "description": "Frontmatter has required Agent Skills fields (name, description)",
+      "check": "frontmatter_fields",
+      "fields": ["name", "description"]
+    },
+    {
+      "id": "S03",
+      "description": "Teaches faithful content reproduction (the core capability fg-content-mapping evaluates)",
+      "check": "contains",
+      "text": "Faithful content reproduction"
+    },
+    {
+      "id": "S04",
+      "description": "Forbids inventing content the source does not have",
+      "check": "contains",
+      "text": "Never invent content the source doesn't have"
+    },
+    {
+      "id": "S05",
+      "description": "Treats repeating blocks (team members) as a complete list with every field",
+      "check": "contains",
+      "text": "Repeating blocks: build the COMPLETE list, with every field of every item"
+    },
+    {
+      "id": "S06",
+      "description": "Names team members as a canonical repeating-block example",
+      "check": "contains",
+      "text": "team members"
+    },
+    {
+      "id": "S07",
+      "description": "Requires enumerating every block, not sampling (the count must be exact)",
+      "check": "contains",
+      "text": "Enumerate every block"
+    },
+    {
+      "id": "S08",
+      "description": "Requires extracting every field of each block (name, role, social links)",
+      "check": "contains",
+      "text": "Extract every field of each block"
+    },
+    {
+      "id": "S09",
+      "description": "Calls out the missing social-link failure mode (e.g. the LinkedIn link per card)",
+      "check": "contains",
+      "text": "LinkedIn"
+    },
+    {
+      "id": "S10",
+      "description": "Forbids paraphrasing or borrowing a field from a sibling item",
+      "check": "contains",
+      "text": "never paraphrased, never borrowed from a sibling"
+    },
+    {
+      "id": "S11",
+      "description": "Defines an element inventory as the QA gate against missed elements",
+      "check": "contains",
+      "text": "Element inventory (the QA gate against missed elements)"
+    },
+    {
+      "id": "S12",
+      "description": "Requires extracting structurally from the DOM, not by eye",
+      "check": "contains",
+      "text": "Extract from the DOM, structurally, not by eye"
+    },
+    {
+      "id": "S13",
+      "description": "'Never invent' rule appears before the element-inventory QA gate (capture before verify)",
+      "check": "order",
+      "first": "Never invent content the source doesn't have",
+      "second": "Element inventory (the QA gate against missed elements)"
+    }
+  ]
+}

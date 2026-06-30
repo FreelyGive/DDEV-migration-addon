@@ -8,6 +8,42 @@ hooks:
   post-start:
     # Fetch latest agent-browser skill definition
     - exec: "mkdir -p /var/www/html/.claude/skills/agent-browser && agent-browser skills get core --full > /var/www/html/.claude/skills/agent-browser/SKILL.md 2>/dev/null || true"
+    # Wire the migration evals onto the ai_best_practices harness, if installed.
+    # The eval runner ships with drupal/ai_best_practices and resolves each eval's
+    # skill_file path relative to the MODULE root, but this addon installs the
+    # skills under the PROJECT's .claude/skills. So copy the eval payloads into the
+    # module's evals/ dir and point the module's .claude/skills at the project's
+    # installed skills with a RELATIVE symlink (resolves the same on host and in
+    # container). Idempotent and guarded: if the module is not vendored yet this is
+    # a no-op, and it self-heals on the next `ddev restart` once it is.
+    - exec: |
+        APPROOT="/var/www/html"
+        MODREL="${DDEV_DOCROOT:-web}/vendor/drupal/ai_best_practices"
+        ABP="${APPROOT}/${MODREL}"
+        if [ -f "${ABP}/evals/run-evals.py" ] && [ -d "${APPROOT}/.claude/evals" ]; then
+          for eval_dir in "${APPROOT}/.claude/evals"/*/; do
+            [ -d "${eval_dir}" ] || continue
+            # Strip the trailing slash so the directory itself is copied
+            # (cp -r "src/" "dest/" copies CONTENTS, not the dir).
+            name=$(basename "${eval_dir}")
+            rm -rf "${ABP}/evals/${name}"
+            cp -r "${eval_dir%/}" "${ABP}/evals/${name}"
+          done
+          mkdir -p "${ABP}/.claude"
+          # Relative path from ${ABP}/.claude back up to ${APPROOT}, then into
+          # .claude/skills. The module's .claude is at "${MODREL}/.claude" below
+          # the approot, so prepend one "../" per path segment in "${MODREL}/.claude".
+          up=""
+          rest="${MODREL}/.claude"
+          while [ -n "${rest}" ] && [ "${rest}" != "." ]; do
+            up="../${up}"
+            case "${rest}" in
+              */*) rest="${rest%/*}" ;;
+              *) rest="" ;;
+            esac
+          done
+          ln -sfn "${up}.claude/skills" "${ABP}/.claude/skills"
+        fi
 
 web_extra_daemons:
   - name: npm-install-migration

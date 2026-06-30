@@ -12,7 +12,7 @@ try {
 const url = process.argv[2] || process.env.TARGET_URL;
 if (!url) {
   console.error("Usage: node run-all.js <url>");
-  console.error("  e.g. node run-all.js https://freelygive.io");
+  console.error("  e.g. node run-all.js https://example.com");
   process.exit(1);
 }
 

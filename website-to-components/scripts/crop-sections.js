@@ -33,6 +33,10 @@ const meta = imageSize(screenshotPath);
 const normalized = sections.map((s, i) => ({
   label: s.label || `Section ${i + 1}`,
   reason: s.reason || "",
+  // Carry the seam-probe through — validateSections() hard-fails without it.
+  // (Dropping it here made every crop fail the seam-probe gate even when the
+  // input JSON recorded probes for every boundary.)
+  seamProbe: s.seamProbe || "",
   x: s.x ?? 0,
   y: Number(s.y),
   width: s.width || meta.width,

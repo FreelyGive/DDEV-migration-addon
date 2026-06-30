@@ -73,6 +73,54 @@ function parseBrowserJson(raw) {
   }
 }
 
+/**
+ * Turn the raw browser-eval result into the ordered page list for the sitemap.
+ *
+ * NEVER throws and NEVER exits — menu detection is best-effort discovery, not a
+ * hard requirement. Any failure (unparseable result, an `{error}` payload, no
+ * pages) degrades to root-only: a sitemap containing just the homepage. This is
+ * the single place that decides "what pages did we discover", so the degrade
+ * behaviour is testable without a browser.
+ *
+ * Returns { pages, rootKind, fallback, reason }:
+ *   - pages:    ordered [{ order, label, url, path, slug }] incl. the homepage
+ *   - rootKind: the detected nav container tag, or null on fallback
+ *   - fallback: true when we degraded to root-only
+ *   - reason:   short string explaining the fallback (for logging), else null
+ */
+export function resolveSitemapPages(raw, origin) {
+  let parsed = parseBrowserJson(raw);
+  let reason = null;
+
+  if (!parsed) {
+    reason = "menu-parse-failed";
+    parsed = { error: reason, pages: [] };
+  } else if (parsed.error) {
+    reason = parsed.error;
+  }
+
+  const found = (parsed.pages || []).filter(
+    (p) => p && p.url && p.url !== origin && p.url !== origin + "/",
+  );
+
+  // Always include the root as the homepage, even on total fallback.
+  const homepage = { order: -1, label: "Home", url: origin + "/", path: "/" };
+  const pages = [homepage, ...found].map((p, i) => ({
+    order: i,
+    label: p.label,
+    url: p.url,
+    path: p.path,
+    slug: pageSlug(p.url),
+  }));
+
+  return {
+    pages,
+    rootKind: parsed.rootKind ?? null,
+    fallback: found.length === 0,
+    reason,
+  };
+}
+
 // Partition collected nav links into named menus by their source region.
 // `links` is { region: "main"|"footer"|"sidebar"|other, label, url }[].
 export function extractMenusFromSnapshot(links, origin) {
@@ -198,8 +246,8 @@ export async function run(url) {
         try { u = new URL(a.href, location.href); } catch(e) { return; }
         if (u.origin !== origin) return;
         if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
-        const path = u.pathname.replace(/\/+$/, '') || '/';
-        const text = a.textContent.trim().replace(/\s+/g, ' ');
+        const path = u.pathname.replace(/\\/+$/, '') || '/';
+        const text = a.textContent.trim().replace(/\\s+/g, ' ');
         if (isJunk(a.href, text)) return;
         if (footerSeen.has(path)) return;
         footerSeen.add(path);
@@ -216,8 +264,8 @@ export async function run(url) {
         try { u = new URL(a.href, location.href); } catch(e) { return; }
         if (u.origin !== origin) return;
         if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
-        const path = u.pathname.replace(/\/+$/, '') || '/';
-        const text = a.textContent.trim().replace(/\s+/g, ' ');
+        const path = u.pathname.replace(/\\/+$/, '') || '/';
+        const text = a.textContent.trim().replace(/\\s+/g, ' ');
         if (isJunk(a.href, text)) return;
         if (sidebarSeen.has(path)) return;
         sidebarSeen.add(path);
@@ -235,32 +283,27 @@ export async function run(url) {
 
   execSync("agent-browser close", { stdio: "inherit" });
 
-  const parsed = parseBrowserJson(raw);
-  if (!parsed) {
-    console.error("Failed to parse menu, raw value:", raw.substring(0, 300));
-    process.exit(1);
+  // An unparseable or empty result is NOT fatal — menu detection is best-effort
+  // discovery. resolveSitemapPages() degrades to a root-only sitemap rather than
+  // killing the whole pipeline. (Previously this path called process.exit(1),
+  // which aborted the entire run on any browser-eval hiccup.)
+  const { pages, rootKind, fallback, reason } = resolveSitemapPages(raw, origin);
+  if (reason === "menu-parse-failed") {
+    console.warn(
+      `! Could not parse the menu-detection result (raw: ${JSON.stringify(raw.substring(0, 120))}). ` +
+        `Falling back to just the root URL.`,
+    );
+  } else if (reason) {
+    console.warn(`! No main menu detected (${reason}). Falling back to just the root URL.`);
+  } else if (fallback) {
+    console.warn(`! Menu detected but no sub-pages found. Sitemap is homepage-only.`);
   }
-  if (parsed.error) {
-    console.warn(`! No main menu detected (${parsed.error}). Falling back to just the root URL.`);
-  }
-
-  const found = (parsed.pages || []).filter(p => p.url !== origin && p.url !== origin + "/");
-
-  // Always include the root as the homepage
-  const homepage = { order: -1, label: "Home", url: origin + "/", path: "/" };
-  const pages = [homepage, ...found].map((p, i) => ({
-    order: i,
-    label: p.label,
-    url: p.url,
-    path: p.path,
-    slug: pageSlug(p.url),
-  }));
 
   const sitemap = {
     host,
     origin,
     detectedAt: new Date().toISOString(),
-    rootKind: parsed.rootKind ?? null,
+    rootKind,
     pages,
   };
 

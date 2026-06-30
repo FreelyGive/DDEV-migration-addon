@@ -44,6 +44,105 @@ represent:
    `<p>{text}</p>` cannot display a logo, menu columns, or social links —
    regardless of its name.
 
+## Faithful content reproduction — reproduce EVERY element, invent NOTHING
+
+The migration must reproduce what the source page actually shows. Two failure
+modes recur and **both are content bugs, not styling bugs** — guard against them
+explicitly:
+
+### A. Never invent content the source doesn't have
+
+Do **not** fabricate names, roles, titles, body copy, prices, dates, or labels.
+A guessed value (e.g. a team member's role typed as "Developer" when the site
+says "Director") is a defect even if it looks plausible. If you cannot read a
+value from the source DOM, leave the field blank rather than invent one — a blank
+is honest and (with conditional rendering) simply doesn't display. Capture real
+text from the source DOM, not from memory or assumption.
+
+**The subtle invention trap — extrapolating a field from a sibling item.** When a
+repeating block has a field you only captured for *some* items (a blog card's
+author/date/excerpt, a price, a badge), do NOT copy a plausible-looking value from
+another item or paraphrase/shorten the real one. Two real defects this caused:
+a blog card given the date of a *different* post and a wholly fabricated excerpt;
+and card titles silently *paraphrased* ("DrupalCon Amsterdam 2019 privacy panel")
+instead of the verbatim source title ("DrupalCon Amsterdam 2019 panel: The
+Proposed Drupal Privacy Initiative"). Both passed a casual glance and were only
+caught by the acceptance reviewer. Rule: a repeating-block field is either
+**captured verbatim from that item's own DOM** or **left blank** — never inferred,
+never paraphrased, never borrowed from a sibling. If meta is missing for some
+items, re-capture it from the source (a quick focused capture pass) rather than
+guess; preserve real CMS quirks verbatim (a repeated teaser line, a double space,
+a missing space between concatenated lines) — those are the source, not noise to
+"clean up".
+
+### B. Repeating blocks: build the COMPLETE list, with every field of every item
+
+When a section is a **sequence of similar blocks** — team members, logos, cards,
+tiers, stats, testimonials, nav links, footer columns, social icons — treat it as
+a list and reproduce **all** of it:
+
+1. **Enumerate every block.** Count them on the source. If there are 10 team
+   members, produce 10 — do not stop at 8, do not sample. Dropping items is the
+   #1 repeating-block bug.
+2. **Extract every field of each block.** A team card is not just a photo — it is
+   `{ photo, name, role, social-link(s) }`. A logo item may carry a link. A nav
+   item has a label AND an href. Walk one block's full structure, list its
+   fields, then capture that tuple for every block. Missing a sub-element (e.g.
+   the LinkedIn icon/link on each team card) across the whole list is the #2 bug.
+3. **Extract from the DOM, structurally, not by eye.** Build the list by querying
+   the repeating elements (`querySelectorAll` on the item selector; for each, read
+   its name/role/links/`href`/`src`/`alt`). Pair fields by DOM proximity within
+   each item, not by guessing order across a flat text dump. Beware
+   builder-injected noise (Squarespace/Wix emit inline `<style>`/CSS as text
+   nodes, and duplicate `<li>` as `<p>`); filter to real content and de-duplicate.
+4. **A field belongs to ONE item — assign it from within that item's own block,
+   NEVER by sequential order across the section.** This is the trap behind the
+   most common links bug. When a field is present for only *some* items — e.g. a
+   team where every person has a Drupal.org link but only 5 of 10 also have a
+   LinkedIn link — do NOT collect the section's links into one flat pool and hand
+   them out in order (the first 5 LinkedIn URLs to the first 5 people, etc.). That
+   silently drops every link of a *different* type and mis-assigns the rest. For
+   EACH item, open that item's own container and read only the links inside it;
+   some items will have one link, some two, some none — record exactly what that
+   item holds. **This rule is independent of how you output the result** — JSON
+   array, markdown table, or one row per person all require the same per-item
+   read. If your output format is a flat list of rows, you must STILL have built
+   each row from its own item's block, not by zipping a pool of links onto names.
+5. **Record the list as data** (an array the component/page consumes), so the
+   count and every field are explicit and reviewable — not buried in prose.
+
+### Element inventory (the QA gate against missed elements)
+
+For each section, before sign-off, produce a short **element inventory** from the
+source and check the build against it. The inventory lists every distinct visible
+element/content bit the source shows for that section:
+
+- headings & sub-headings (exact text), body paragraphs, list items
+- every link (label + destination) and every icon (what it is + where it links)
+- every image (and its alt/role), badges, logos
+- for repeating blocks: the item count and the per-item field list
+
+Then verify **every entry renders in the built component** with the correct
+value. An element on the source that is absent (or shows a different value) in the
+build is a fail — fix it before claiming the section done. This is what catches
+"the LinkedIn icons are missing" and "the role is wrong" *before* the user does.
+See also the Structural Verification section's "source-vs-build element parity"
+check.
+
+**Automate the inventory diff.** `website-to-components/scripts/element-inventory.js`
+extracts this inventory from any page and diffs a source page against the built
+page, listing source headings/text/links/images and repeating-block counts that
+are missing in the build:
+
+```
+node website-to-components/scripts/element-inventory.js <source-url>            # inventory
+node website-to-components/scripts/element-inventory.js <source-url> <built-url> # parity diff
+```
+
+Run the diff per page before sign-off; a non-empty "missing" list is a content
+bug to fix, not noise. (For bot-walled sources, save the HTML and pass a
+`file://` path.)
+
 ## Technology stack
 
 - React 19;
@@ -759,6 +858,88 @@ slots: []
 minimum sizing (`min-w-32 min-h-8`) to be selectable in the Canvas page editor.
 Without this, editors can't click into the slot to add components.
 
+## Repeatable items: use a slot, NEVER an array prop
+
+Any component that shows a **variable number of repeated items** — a card grid, a
+team grid, a logo wall, a pricing table, a blog/post list, a feature grid, a
+testimonial carousel — MUST express those items as **slot children**, not as an
+array prop.
+
+**Why:** Drupal Canvas has **no field widget for `type: array` props whose items
+are objects.** A `component.yml` that declares one looks valid to local
+`canvas validate` in some versions but **`canvas push` aborts server-side** with
+errors like `'properties' is not a supported key` /
+`Drupal Canvas does not know of a field type/widget to allow populating the X
+prop`. Editors also can't add/remove/reorder items, and the count is frozen at
+whatever the JS default array contains. This is the #1 cause of "the grid only
+shows N items and I can't add more."
+
+**The parent/child slot pattern (the only correct way to do repeatable items):**
+
+| Parent (container)  | Child (one item)    | Slot name  |
+| ------------------- | ------------------- | ---------- |
+| `card_grid`         | `card`              | `cards`    |
+| `team_grid`         | `team_member`       | `members`  |
+| `feature_grid`      | `feature_card`      | `features` |
+| `pricing_table`     | `pricing_tier`      | `tiers`    |
+| `logo_wall`         | `logo_item`         | `logos`    |
+| `post_list`         | `post_card`         | `posts`    |
+
+Child naming: `_card` for card-like items, `_item` for generic repeats, `_link`
+for links, `_group` for grouped sub-containers.
+
+- **Parent** owns the heading + the grid/layout wrapper and renders the slot:
+
+  ```jsx
+  // parent index.jsx
+  const CardGrid = ({ heading, cards }) => (
+    <section className="...">
+      {heading ? <h2 className="...">{heading}</h2> : null}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">{cards}</div>
+    </section>
+  );
+  ```
+
+  ```yaml
+  # parent component.yml
+  props:
+    properties:
+      heading:
+        title: Heading
+        type: string
+        examples: ['Section heading']
+  slots:
+    cards:
+      title: Cards
+  ```
+
+- **Child** is a normal component with its own scalar props (title, image, href…).
+  The editor drops any number of children into the parent's slot.
+
+**Migrating an existing array-prop grid to slots:** keep the parent's heading
+prop; delete the array prop from `component.yml`; replace `{items.map(...)}` in
+the JSX with `{slotName}`; move the per-item markup into the child component.
+Provide example children in the **story** (not as a JS default array) so the
+component still demos with content.
+
+> Never reintroduce an array-of-objects prop "for convenience." It will pass some
+> local checks and fail the live push every time.
+
+## Navigation / menus: a slot, not numbered props
+
+A header/nav/footer-menu component must accept **any number of links**. Do NOT
+hard-code `nav1Label`/`nav1Href` … `navNLabel`/`navNHref` props — that caps the
+menu at N items and forces editors to leave unused slots blank (which then show
+stale defaults). Instead:
+
+- Preferred: a `nav` (or `links`) **slot** holding any number of link/`nav_item`
+  children, exactly like the repeatable-items pattern above.
+- Alternative when the menu is driven by the CMS: fetch the Drupal menu via
+  JSON:API and render it (see the data-fetching reference), so item count is
+  whatever the menu has.
+
+Either way the count is dynamic and editor-controlled, never a fixed prop set.
+
 ## Defensive Prop Handling
 
 Components run server-side in Canvas. An unguarded null access will crash the
@@ -806,6 +987,49 @@ strings:
 // ✅ SAFE — handle both forms
 const htmlContent = typeof text === 'object' ? text.value : text;
 ```
+
+### Blank values must HIDE content — JS defaults must not override the editor
+
+A frequent complaint: *"I clear a field in the editor but the old text comes
+back / the element won't go away."* Cause: the component uses a JS default
+(`heading = 'Welcome'`) or an unconditional fallback (`heading || 'Welcome'`), so
+an empty value is replaced by the default and the editor can never blank it out.
+
+**Rules so an empty value removes the element:**
+
+1. **Don't bake real content into JS defaults for editable optional props.** A
+   default like `heading = 'Our team'` means the editor's empty string is
+   overridden — they can't remove the heading. Default to **empty** (`= ''`) or
+   omit the default, and render conditionally.
+
+2. **Render optional content conditionally; an empty value renders nothing:**
+
+   ```jsx
+   // ✅ blank → element disappears
+   {heading ? <h2 className="...">{heading}</h2> : null}
+   {imgSrc ? <img src={imgSrc} alt={alt} /> : null}
+   {body ? <div dangerouslySetInnerHTML={{ __html: body }} /> : null}
+   ```
+
+   (`''`, `null`, and `undefined` are all falsy, so one guard covers "missing"
+   and "explicitly cleared".)
+
+3. **Reserve the `|| 'fallback'` pattern for props where a fallback is genuinely
+   wanted** (e.g. a "Read more" link label that should never be empty). Do NOT
+   use it for content the editor should be able to remove.
+
+4. **`examples:` in `component.yml` are placeholders for the editor UI, not
+   runtime defaults.** Keep examples (they seed the editor), but never rely on
+   them — or on JS defaults — to supply live content. Provide demo content in the
+   **story**, so Storybook looks populated while the live component honours blank
+   values.
+
+5. **Required props get NO JS default** — if Canvas must always supply it, a
+   silent fallback hides missing-data bugs.
+
+Test both states in the story: a populated variant AND a variant with `''` for
+every optional prop, confirming the cleared element disappears (not reverts to a
+default).
 
 ### General rules
 
@@ -894,6 +1118,15 @@ visually.
 5. **Check multiple viewport sizes.** View in Storybook at desktop, tablet, and
    mobile widths. Verify responsive behavior matches the source site's
    responsive design.
+6. **Source-vs-build element parity (content QA gate).** Compare the built
+   section against the source **element inventory** (see "Faithful content
+   reproduction"). Walk the inventory and confirm each item is present with the
+   correct value: every heading/paragraph, every link (label + href), every icon
+   (e.g. a per-card LinkedIn icon link), every image, and — for repeating blocks —
+   the **full item count** and **every field of every item**. Any source element
+   missing from the build, or rendered with an invented/incorrect value (a guessed
+   role, a wrong title), is a fail. Do this before declaring the section done;
+   it is the check that catches missing social icons and wrong roles up front.
 
 ## Acquia Source Documentation
 
